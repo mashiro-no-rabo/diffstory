@@ -1,0 +1,36 @@
+# Diffstory
+
+Rust CLI tool that organizes PR diff hunks into a narrative with chapters, then renders a standalone HTML viewer.
+
+## Build & Test
+
+```
+cargo build
+cargo test
+```
+
+## Architecture
+
+- `src/model.rs` — Data types: Storyline, Chapter, HunkRef, IrrelevantHunk
+- `src/diff_parser.rs` — Unified diff parser (git format)
+- `src/matcher.rs` — Resolves HunkRefs against parsed diffs, tracks coverage
+- `src/codec.rs` — JSON → gzip → base64 encode/decode, PR embedding format
+- `src/html/` — Standalone HTML generation with inlined CSS/JS from `assets/`
+- `src/github.rs` — GitHub API integration (feature-gated behind `github` feature)
+- `src/main.rs` — clap CLI with subcommands: generate, extract, encode, decode, validate
+
+## Conventions
+
+- Storyline JSON uses `file` + `hunk_index` (0-based) to reference diff hunks
+- PR embedding uses `<!--diffstory:BASE64-->` inside a `<details>` block
+- HTML viewer is fully self-contained (no external dependencies)
+- Markdown in descriptions/notes rendered via comrak
+- GitHub feature is optional: `cargo build --no-default-features` to exclude
+
+## Test Fixtures
+
+Sample diff and storyline in `tests/fixtures/`. Use for manual testing:
+```
+cargo run -- validate --storyline tests/fixtures/sample.json --diff tests/fixtures/sample.diff
+cargo run -- generate --storyline tests/fixtures/sample.json --diff tests/fixtures/sample.diff -o out.html
+```

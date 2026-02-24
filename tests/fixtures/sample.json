@@ -1,0 +1,38 @@
+{
+  "description": "This PR adds interactive greeting and sets up the library structure.",
+  "chapters": [
+    {
+      "title": "Interactive Greeting",
+      "description": "Replace the static hello with an interactive prompt that reads the user's name.",
+      "hunks": [
+        {
+          "file": "src/main.rs",
+          "hunk_index": 0,
+          "note": "Added stdin import and changed the greeting to read user input."
+        }
+      ]
+    },
+    {
+      "title": "Library Setup",
+      "description": "Create the library crate with a public module and version function.",
+      "hunks": [
+        {
+          "file": "src/lib.rs",
+          "hunk_index": 0
+        },
+        {
+          "file": "src/main.rs",
+          "hunk_index": 1,
+          "note": "Helper function scaffolding for future use."
+        }
+      ]
+    }
+  ],
+  "irrelevant": [
+    {
+      "file": "README.md",
+      "hunk_index": 0,
+      "reason": "Routine title update"
+    }
+  ]
+}

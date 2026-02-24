@@ -1,0 +1,40 @@
+diff --git a/src/main.rs b/src/main.rs
+index abc1234..def5678 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -1,5 +1,7 @@
++use std::io;
++
+ fn main() {
+-    println!("hello");
++    let name = io::stdin().lines().next().unwrap().unwrap();
++    println!("hello, {name}!");
+ }
+@@ -10,3 +12,7 @@
+ fn helper() {
+     // existing code
+ }
++
++fn new_helper() {
++    todo!()
++}
+diff --git a/src/lib.rs b/src/lib.rs
+new file mode 100644
+index 0000000..1234567
+--- /dev/null
++++ b/src/lib.rs
+@@ -0,0 +1,5 @@
++pub mod greet;
++
++pub fn version() -> &'static str {
++    "0.1.0"
++}
+diff --git a/README.md b/README.md
+index 1111111..2222222 100644
+--- a/README.md
++++ b/README.md
+@@ -1,3 +1,3 @@
+-# Old Title
++# New Title
+
+ Some description.
