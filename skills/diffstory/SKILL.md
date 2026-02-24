@@ -62,7 +62,7 @@ Iterate until validation shows 100% coverage.
 Once validated, present two options:
 
 1. **Encode for PR embedding**: `diffstory encode --storyline <path> --wrap` — outputs the `<details>` block to paste into the PR description
-2. **Generate HTML viewer**: `diffstory generate --storyline <path> --diff <diff-path> -o diffstory.html` — creates a standalone HTML file
+2. **View HTML**: `diffstory view --storyline <path> --diff <diff-path>` — generates HTML in /tmp and opens it in the browser
 
 Ask the user which they want (or both).
 
