@@ -1,24 +1,24 @@
 # diffstory
 
-Turn PR diffs into guided narratives. Organize hunks into chapters with descriptions and notes, then generate a standalone HTML viewer for reviewers.
+Turn PR diffs into guided narratives. Organize hunks into chapters with descriptions and notes, then view them as a standalone HTML story.
 
 ## Install
 
-```
-cargo install --path .
-```
+Use the `/install` skill in Claude Code, which also registers the `/diffstory` skill for generating storylines.
 
 ## Usage
 
-**Generate an HTML viewer from a storyline and diff:**
+**View a GitHub PR's diffstory** (requires `gh` CLI):
 ```
-diffstory generate --storyline story.json --diff changes.diff -o review.html
+diffstory view https://github.com/owner/repo/pull/123
 ```
 
-**Extract from a GitHub PR** (requires `GITHUB_TOKEN`):
+**View from local files:**
 ```
-diffstory extract https://github.com/owner/repo/pull/123 -o review.html
+diffstory view --storyline story.json --diff changes.diff
 ```
+
+Both open a standalone HTML viewer in your browser.
 
 **Encode a storyline for embedding in a PR description:**
 ```

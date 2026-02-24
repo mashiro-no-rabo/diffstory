@@ -16,8 +16,8 @@ cargo test
 - `src/matcher.rs` — Resolves HunkRefs against parsed diffs, tracks coverage
 - `src/codec.rs` — JSON → gzip → base64 encode/decode, PR embedding format
 - `src/html/` — Standalone HTML generation with inlined CSS/JS from `assets/`
-- `src/github.rs` — GitHub API integration (feature-gated behind `github` feature)
-- `src/main.rs` — clap CLI with subcommands: generate, extract, encode, decode, validate
+- `src/github.rs` — GitHub PR fetching via `gh` CLI
+- `src/main.rs` — clap CLI with subcommands: view, encode, decode, validate
 
 ## Conventions
 
@@ -25,12 +25,12 @@ cargo test
 - PR embedding uses `<!--diffstory:BASE64-->` inside a `<details>` block
 - HTML viewer is fully self-contained (no external dependencies)
 - Markdown in descriptions/notes rendered via comrak
-- GitHub feature is optional: `cargo build --no-default-features` to exclude
+- GitHub integration uses `gh` CLI (no API token management needed)
 
 ## Test Fixtures
 
 Sample diff and storyline in `tests/fixtures/`. Use for manual testing:
 ```
 cargo run -- validate --storyline tests/fixtures/sample.json --diff tests/fixtures/sample.diff
-cargo run -- generate --storyline tests/fixtures/sample.json --diff tests/fixtures/sample.diff -o out.html
+cargo run -- view --storyline tests/fixtures/sample.json --diff tests/fixtures/sample.diff
 ```
