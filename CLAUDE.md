@@ -27,6 +27,11 @@ cargo test
 - Markdown in descriptions/notes rendered via comrak
 - GitHub integration uses `gh` CLI (no API token management needed)
 
+## TODO
+
+- Dark theme toggle
+- Split view (side-by-side diff) toggle — currently inline diff only
+
 ## Test Fixtures
 
 Sample diff and storyline in `tests/fixtures/`. Use for manual testing:
