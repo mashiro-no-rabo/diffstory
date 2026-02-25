@@ -112,7 +112,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
           let parsed_diff = diff_parser::parse_diff(&diff_text)?;
 
           // Fetch comments
-          let review_comments = diffstory::github::fetch_review_comments(&pr_info.repo, pr_info.number)
+          let review_threads = diffstory::github::fetch_review_threads(&pr_info.repo, pr_info.number)
             .unwrap_or_else(|e| {
               eprintln!("warning: failed to fetch review comments: {e}");
               Vec::new()
@@ -123,15 +123,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
               Vec::new()
             });
 
-          // Map review comments to hunks
-          let (comment_map, outdated) = comments::map_comments_to_hunks(review_comments, &parsed_diff);
+          // Separate bot issue comments
+          let (human_issue_comments, bot_issue_comments): (Vec<_>, Vec<_>) =
+            issue_comments.into_iter().partition(|c| !c.user.is_bot());
+
+          // Map review threads to hunks, separating resolved/bot
+          let (comment_map, outdated, resolved_threads, bot_review_threads) =
+            comments::map_threads_to_hunks(review_threads, &parsed_diff);
 
           let resolved = matcher::resolve_with_comments(
             &story,
             &parsed_diff,
             Some(comment_map),
-            issue_comments,
+            human_issue_comments,
             outdated,
+            resolved_threads,
+            bot_review_threads,
+            bot_issue_comments,
           );
 
           diffstory::html::render(

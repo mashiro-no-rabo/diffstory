@@ -3,7 +3,7 @@ use std::process::Command;
 use thiserror::Error;
 
 use crate::codec;
-use crate::comments::{IssueComment, ReviewComment};
+use crate::comments::{CommentUser, GqlReviewThread, IssueComment, ReviewComment};
 
 #[derive(Debug, Error)]
 pub enum GithubError {
@@ -36,6 +36,7 @@ pub struct PrInfo {
 fn run_gh(args: &[&str]) -> Result<String, GithubError> {
     let output = Command::new("gh")
         .args(args)
+        .env("GH_PAGER", "")
         .output()
         .map_err(|_| GithubError::GhNotFound)?;
 
@@ -110,14 +111,101 @@ pub fn fetch_pr(url: &str) -> Result<(PrInfo, String), GithubError> {
     ))
 }
 
-/// Fetch review comments (line-level) for a PR.
-pub fn fetch_review_comments(repo: &str, number: u64) -> Result<Vec<ReviewComment>, GithubError> {
-    let endpoint = format!("repos/{repo}/pulls/{number}/comments");
-    let json_str = run_gh(&["api", "--paginate", &endpoint])?;
+/// Fetch review threads via GraphQL, preserving resolved state and author type.
+pub fn fetch_review_threads(repo: &str, number: u64) -> Result<Vec<GqlReviewThread>, GithubError> {
+    let query = format!(
+        r#"query {{
+  repository(owner: "{owner}", name: "{name}") {{
+    pullRequest(number: {number}) {{
+      reviewThreads(first: 100) {{
+        nodes {{
+          isResolved
+          path
+          line
+          originalLine
+          diffSide
+          comments(first: 100) {{
+            nodes {{
+              databaseId
+              body
+              author {{
+                login
+                __typename
+              }}
+              createdAt
+            }}
+          }}
+        }}
+      }}
+    }}
+  }}
+}}"#,
+        owner = repo.split('/').next().unwrap_or(""),
+        name = repo.split('/').nth(1).unwrap_or(""),
+        number = number,
+    );
 
-    // gh api --paginate may return concatenated JSON arrays, so we need to handle that
-    let comments: Vec<ReviewComment> = parse_paginated_json(&json_str)?;
-    Ok(comments)
+    let json_str = run_gh(&["api", "graphql", "-f", &format!("query={query}")])?;
+    let json: serde_json::Value = serde_json::from_str(&json_str)?;
+
+    let threads = json["data"]["repository"]["pullRequest"]["reviewThreads"]["nodes"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+
+    let mut result = Vec::new();
+    for thread in threads {
+        let is_resolved = thread["isResolved"].as_bool().unwrap_or(false);
+        let path = thread["path"].as_str().unwrap_or("").to_string();
+        let line = thread["line"].as_u64().map(|n| n as u32);
+        let original_line = thread["originalLine"].as_u64().map(|n| n as u32);
+        let diff_side = thread["diffSide"].as_str().map(|s| s.to_string());
+
+        let comment_nodes = thread["comments"]["nodes"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+
+        let mut comments = Vec::new();
+        let mut first_id: Option<u64> = None;
+        for (i, node) in comment_nodes.iter().enumerate() {
+            let id = node["databaseId"].as_u64().unwrap_or(0);
+            if i == 0 {
+                first_id = Some(id);
+            }
+            let login = node["author"]["login"]
+                .as_str()
+                .unwrap_or("ghost")
+                .to_string();
+            let user_type = node["author"]["__typename"]
+                .as_str()
+                .map(|s| s.to_string());
+            let body = node["body"].as_str().unwrap_or("").to_string();
+            let created_at = node["createdAt"].as_str().unwrap_or("").to_string();
+
+            comments.push(ReviewComment {
+                id,
+                path: path.clone(),
+                line,
+                original_line,
+                side: diff_side.clone(),
+                body,
+                user: CommentUser { login, user_type },
+                created_at,
+                in_reply_to_id: if i > 0 { first_id } else { None },
+            });
+        }
+
+        result.push(GqlReviewThread {
+            is_resolved,
+            path,
+            line,
+            original_line,
+            comments,
+        });
+    }
+
+    Ok(result)
 }
 
 /// Fetch issue comments (general PR-level) for a PR.

@@ -29,6 +29,24 @@ pub struct IssueComment {
 #[derive(Debug, Clone, Deserialize)]
 pub struct CommentUser {
     pub login: String,
+    #[serde(rename = "type", default)]
+    pub user_type: Option<String>,
+}
+
+impl CommentUser {
+    pub fn is_bot(&self) -> bool {
+        self.user_type.as_deref() == Some("Bot")
+    }
+}
+
+/// A review thread fetched via GraphQL, preserving resolved state.
+#[derive(Debug, Clone)]
+pub struct GqlReviewThread {
+    pub is_resolved: bool,
+    pub path: String,
+    pub line: Option<u32>,
+    pub original_line: Option<u32>,
+    pub comments: Vec<ReviewComment>,
 }
 
 /// A review comment mapped to a specific hunk position.
@@ -269,6 +287,45 @@ fn find_line_in_hunks_original(
     None
 }
 
+/// Map GraphQL review threads to hunks, separating resolved/bot/human threads.
+///
+/// Returns:
+/// - `CommentMap` — unresolved human threads mapped to hunks
+/// - `Vec<OutdatedComment>` — unmappable threads
+/// - `Vec<GqlReviewThread>` — resolved threads
+/// - `Vec<GqlReviewThread>` — bot threads
+pub fn map_threads_to_hunks(
+    threads: Vec<GqlReviewThread>,
+    diff: &ParsedDiff,
+) -> (CommentMap, Vec<OutdatedComment>, Vec<GqlReviewThread>, Vec<GqlReviewThread>) {
+    let mut resolved_threads = Vec::new();
+    let mut bot_threads = Vec::new();
+    let mut human_comments = Vec::new();
+
+    for thread in threads {
+        if thread.is_resolved {
+            resolved_threads.push(thread);
+            continue;
+        }
+
+        // Check if the root comment is from a bot
+        let is_bot = thread.comments.first()
+            .map(|c| c.user.is_bot())
+            .unwrap_or(false);
+
+        if is_bot {
+            bot_threads.push(thread);
+            continue;
+        }
+
+        // Extract comments from unresolved human threads
+        human_comments.extend(thread.comments);
+    }
+
+    let (comment_map, outdated) = map_comments_to_hunks(human_comments, diff);
+    (comment_map, outdated, resolved_threads, bot_threads)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -306,6 +363,7 @@ diff --git a/src/main.rs b/src/main.rs
             body: "Nice addition!".to_string(),
             user: CommentUser {
                 login: "reviewer".to_string(),
+                user_type: None,
             },
             created_at: "2024-01-01T00:00:00Z".to_string(),
             in_reply_to_id: None,
@@ -342,6 +400,7 @@ diff --git a/lib.rs b/lib.rs
             body: "Why this import?".to_string(),
             user: CommentUser {
                 login: "alice".to_string(),
+                user_type: None,
             },
             created_at: "2024-01-01T00:00:00Z".to_string(),
             in_reply_to_id: None,
@@ -356,6 +415,7 @@ diff --git a/lib.rs b/lib.rs
             body: "For file operations".to_string(),
             user: CommentUser {
                 login: "bob".to_string(),
+                user_type: None,
             },
             created_at: "2024-01-01T01:00:00Z".to_string(),
             in_reply_to_id: Some(10),
@@ -390,6 +450,7 @@ diff --git a/src/main.rs b/src/main.rs
             body: "Old comment".to_string(),
             user: CommentUser {
                 login: "reviewer".to_string(),
+                user_type: None,
             },
             created_at: "2024-01-01T00:00:00Z".to_string(),
             in_reply_to_id: None,

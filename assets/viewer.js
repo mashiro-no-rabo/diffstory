@@ -127,9 +127,6 @@ document.querySelectorAll('.collapsible-header').forEach(function(header) {
       rows.forEach(function(row) {
         if (row.classList.contains('diff-hunk-header')) {
           lines.push({ type: 'header', text: row.querySelector('td').textContent });
-        } else if (row.classList.contains('comment-row')) {
-          // Preserve comment rows - add as-is
-          lines.push({ type: 'comment', element: row });
         } else if (row.classList.contains('diff-line-add')) {
           lines.push({ type: 'add', text: row.querySelector('.diff-code').textContent });
         } else if (row.classList.contains('diff-line-del')) {
@@ -144,13 +141,6 @@ document.querySelectorAll('.collapsible-header').forEach(function(header) {
       // For new files: show everything on the right only
       if (isNewFile) {
         lines.forEach(function(line) {
-          if (line.type === 'comment') {
-            var tr = document.createElement('tr');
-            tr.className = 'comment-row';
-            tr.innerHTML = '<td colspan="5">' + line.element.querySelector('td').innerHTML + '</td>';
-            split.appendChild(tr);
-            return;
-          }
           var tr = document.createElement('tr');
           if (line.type === 'header') {
             tr.className = 'diff-hunk-header';
@@ -172,13 +162,6 @@ document.querySelectorAll('.collapsible-header').forEach(function(header) {
       // For deleted files: show everything on the left only
       if (isDeletedFile) {
         lines.forEach(function(line) {
-          if (line.type === 'comment') {
-            var tr = document.createElement('tr');
-            tr.className = 'comment-row';
-            tr.innerHTML = '<td colspan="5">' + line.element.querySelector('td').innerHTML + '</td>';
-            split.appendChild(tr);
-            return;
-          }
           var tr = document.createElement('tr');
           if (line.type === 'header') {
             tr.className = 'diff-hunk-header';
@@ -204,9 +187,6 @@ document.querySelectorAll('.collapsible-header').forEach(function(header) {
         var line = lines[i];
         if (line.type === 'header') {
           paired.push({ type: 'header', text: line.text });
-          i++;
-        } else if (line.type === 'comment') {
-          paired.push({ type: 'comment', element: line.element });
           i++;
         } else if (line.type === 'ctx' || line.type === 'noeof') {
           paired.push({ type: line.type, text: line.text });
@@ -241,9 +221,6 @@ document.querySelectorAll('.collapsible-header').forEach(function(header) {
         if (p.type === 'header') {
           tr.className = 'diff-hunk-header';
           tr.innerHTML = '<td colspan="5">' + esc(p.text) + '</td>';
-        } else if (p.type === 'comment') {
-          tr.className = 'comment-row';
-          tr.innerHTML = '<td colspan="5">' + p.element.querySelector('td').innerHTML + '</td>';
         } else if (p.type === 'ctx') {
           tr.innerHTML =
             '<td class="diff-marker split-ctx"> </td>' +
@@ -317,7 +294,7 @@ document.querySelectorAll('.collapsible-header').forEach(function(header) {
   var tpl = document.getElementById('comment-form-tpl');
   if (!tpl) return;
 
-  // Click on diff line numbers to add a comment
+  // Click on diff line numbers to add a comment inline
   document.addEventListener('click', function(e) {
     var lineNumCell = e.target.closest('.diff-line-num');
     if (!lineNumCell) return;
@@ -332,13 +309,12 @@ document.querySelectorAll('.collapsible-header').forEach(function(header) {
     // Check if a form already exists for this line
     var nextRow = row.nextElementSibling;
     if (nextRow && nextRow.classList.contains('comment-form-row')) {
-      // Focus the existing textarea
       var ta = nextRow.querySelector('.comment-textarea');
       if (ta) ta.focus();
       return;
     }
 
-    // Insert comment form
+    // Insert comment form inline
     var formRow = document.createElement('tr');
     formRow.className = 'comment-form-row';
     var td = document.createElement('td');
@@ -355,7 +331,7 @@ document.querySelectorAll('.collapsible-header').forEach(function(header) {
       localStorage.setItem(draftKey, textarea.value);
     });
 
-    // Save to batch — ensure draft is stored then collapse the form
+    // Save to batch
     form.querySelector('.comment-btn-copy').addEventListener('click', function() {
       var text = textarea.value.trim();
       if (!text) return;
@@ -368,7 +344,7 @@ document.querySelectorAll('.collapsible-header').forEach(function(header) {
       setTimeout(function() { formRow.remove(); }, 600);
     });
 
-    // Cancel — discard draft and remove the form
+    // Cancel
     form.querySelector('.comment-btn-reset').addEventListener('click', function() {
       localStorage.removeItem(draftKey);
       row.classList.remove('has-draft');
@@ -435,7 +411,7 @@ document.querySelectorAll('.collapsible-header').forEach(function(header) {
     exportBtn.addEventListener('click', function() {
       var commands = [];
 
-      // Collect new line comments from open forms
+      // Collect new line comments from open inline forms
       document.querySelectorAll('.comment-form-row').forEach(function(formRow) {
         var textarea = formRow.querySelector('.comment-textarea');
         if (!textarea || !textarea.value.trim()) return;
@@ -476,12 +452,12 @@ document.querySelectorAll('.collapsible-header').forEach(function(header) {
         if (key.startsWith('diffstory-draft-')) {
           var val = localStorage.getItem(key);
           if (!val || !val.trim()) continue;
-          // Check if this draft already has an open form (already collected above)
           var parts = key.substring('diffstory-draft-'.length);
           var lastDash = parts.lastIndexOf('-');
           if (lastDash === -1) continue;
           var file = parts.substring(0, lastDash);
           var line = parts.substring(lastDash + 1);
+          // Check if this draft already has an open form (already collected above)
           var existingForm = document.querySelector('tr[data-file="' + CSS.escape(file) + '"][data-line="' + line + '"] + .comment-form-row');
           if (existingForm) continue; // already collected
           commands.push(

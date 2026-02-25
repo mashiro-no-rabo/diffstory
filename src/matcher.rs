@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::comments::{CommentMap, CommentThread, IssueComment, OutdatedComment};
+use crate::comments::{CommentMap, CommentThread, GqlReviewThread, IssueComment, OutdatedComment};
 use crate::diff_parser::{FileDiff, Hunk, ParsedDiff};
 use crate::model::{HunkRef, Storyline};
 
@@ -13,6 +13,9 @@ pub struct ResolvedStory {
   pub warnings: Vec<String>,
   pub issue_comments: Vec<IssueComment>,
   pub outdated_comments: Vec<OutdatedComment>,
+  pub resolved_threads: Vec<GqlReviewThread>,
+  pub bot_review_threads: Vec<GqlReviewThread>,
+  pub bot_issue_comments: Vec<IssueComment>,
 }
 
 #[derive(Debug)]
@@ -45,7 +48,7 @@ pub struct UncategorizedHunk {
 type HunkKey = (String, usize);
 
 pub fn resolve(storyline: &Storyline, diff: &ParsedDiff) -> ResolvedStory {
-  resolve_with_comments(storyline, diff, None, Vec::new(), Vec::new())
+  resolve_with_comments(storyline, diff, None, Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new())
 }
 
 pub fn resolve_with_comments(
@@ -54,6 +57,9 @@ pub fn resolve_with_comments(
   comments: Option<CommentMap>,
   issue_comments: Vec<IssueComment>,
   outdated_comments: Vec<OutdatedComment>,
+  resolved_threads: Vec<GqlReviewThread>,
+  bot_review_threads: Vec<GqlReviewThread>,
+  bot_issue_comments: Vec<IssueComment>,
 ) -> ResolvedStory {
   let mut warnings = Vec::new();
   let mut referenced: HashSet<HunkKey> = HashSet::new();
@@ -95,6 +101,9 @@ pub fn resolve_with_comments(
     warnings,
     issue_comments,
     outdated_comments,
+    resolved_threads,
+    bot_review_threads,
+    bot_issue_comments,
   }
 }
 

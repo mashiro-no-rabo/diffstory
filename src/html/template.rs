@@ -1,6 +1,6 @@
 use comrak::{markdown_to_html, Options};
 
-use crate::comments::{CommentThread, IssueComment, OutdatedComment, ReviewComment};
+use crate::comments::{CommentThread, GqlReviewThread, IssueComment, OutdatedComment, ReviewComment};
 use crate::diff_parser::{DiffLine, FileDiff, Hunk};
 use crate::github::PrInfo;
 use crate::matcher::{ResolvedChapter, ResolvedHunk, ResolvedStory, UncategorizedHunk};
@@ -11,6 +11,7 @@ const JS: &str = include_str!("../../assets/viewer.js");
 
 pub fn render(story: &ResolvedStory, title: Option<&str>, author: Option<&str>, pr_info: Option<&PrInfo>) -> String {
   let display_title = title.unwrap_or("Diffstory");
+  let has_comments = pr_info.is_some();
 
   let header_author = match author {
     Some(a) => format!("<p class=\"author\">by {}</p>", html_escape(a)),
@@ -18,7 +19,7 @@ pub fn render(story: &ResolvedStory, title: Option<&str>, author: Option<&str>, 
   };
 
   let description = match &story.description {
-    Some(desc) => format!("<div class=\"story-description\">{}</div>", md_to_html(desc)),
+    Some(desc) => format!("<div class=\"story-description markdown-body\">{}</div>", md_to_html(desc)),
     None => String::new(),
   };
 
@@ -30,9 +31,26 @@ pub fn render(story: &ResolvedStory, title: Option<&str>, author: Option<&str>, 
   let issue_comments = render_issue_comments(&story.issue_comments);
   let outdated_comments = render_outdated_comments(&story.outdated_comments);
   let pr_meta = render_pr_meta(pr_info);
-  let has_comments = pr_info.is_some();
+
+  // Right panel content (resolved, bot — not active comments)
+  let resolved_comments = render_resolved_section(&story.resolved_threads);
+  let bot_comments = render_bot_section(&story.bot_review_threads, &story.bot_issue_comments);
+
+  let has_right_panel = !story.resolved_threads.is_empty()
+    || !story.bot_review_threads.is_empty()
+    || !story.bot_issue_comments.is_empty()
+    || !story.issue_comments.is_empty();
+
+  let html_class = if has_comments && has_right_panel {
+    "class=\"show-comments has-right-panel\""
+  } else if has_comments {
+    "class=\"show-comments\""
+  } else {
+    "class=\"\""
+  };
 
   TEMPLATE
+    .replace("{{HTML_CLASS}}", html_class)
     .replace("{{TITLE}}", &html_escape(display_title))
     .replace("{{CSS}}", CSS)
     .replace("{{JS}}", JS)
@@ -56,6 +74,8 @@ pub fn render(story: &ResolvedStory, title: Option<&str>, author: Option<&str>, 
     .replace("{{EXPORT_BTN}}", if has_comments {
       "<button class=\"toolbar-btn\" id=\"export-comments\" title=\"Export all draft comments\">&#128230;</button>"
     } else { "" })
+    .replace("{{RESOLVED_COMMENTS}}", &resolved_comments)
+    .replace("{{BOT_COMMENTS}}", &bot_comments)
 }
 
 fn render_pr_meta(pr_info: Option<&PrInfo>) -> String {
@@ -101,11 +121,14 @@ fn render_toc(
 ) -> String {
   let mut html = String::new();
 
-  for (i, ch) in chapters.iter().enumerate() {
-    html.push_str(&format!(
-      "<li><a href=\"#chapter-{i}\" data-chapter=\"{i}\">{}</a></li>\n",
-      html_escape(&ch.title)
-    ));
+  if !chapters.is_empty() {
+    html.push_str("<li class=\"toc-section\">Main Changes</li>\n");
+    for (i, ch) in chapters.iter().enumerate() {
+      html.push_str(&format!(
+        "<li><a href=\"#chapter-{i}\" data-chapter=\"{i}\">{}</a></li>\n",
+        html_escape(&ch.title)
+      ));
+    }
   }
 
   if !misc.is_empty() {
@@ -136,7 +159,7 @@ fn render_chapters(chapters: &[ResolvedChapter]) -> String {
     ));
     if let Some(desc) = &ch.description {
       html.push_str(&format!(
-        "<div class=\"chapter-description\">{}</div>\n",
+        "<div class=\"chapter-description markdown-body\">{}</div>\n",
         md_to_html(desc)
       ));
     }
@@ -164,11 +187,11 @@ fn render_hunks_grouped(hunks: &[ResolvedHunk]) -> String {
       let rh = &hunks[i];
       if let Some(note) = &rh.note {
         html.push_str(&format!(
-          "<div class=\"hunk-note\">{}</div>\n",
+          "<div class=\"hunk-note markdown-body\">{}</div>\n",
           md_to_html(note)
         ));
       }
-      html.push_str(&render_hunk_table(&rh.hunk, &rh.file_path, &rh.comments));
+      html.push_str(&render_hunk_table(&rh.hunk, &rh.file_path, rh.hunk_index, &rh.comments));
       i += 1;
     }
 
@@ -196,7 +219,7 @@ fn render_file_header(file_diff: &FileDiff, path: &str) -> String {
 
   let display = if file_diff.is_rename {
     format!(
-      "{} → {}",
+      "{} \u{2192} {}",
       file_diff.old_path.as_deref().unwrap_or("?"),
       file_diff.new_path.as_deref().unwrap_or("?")
     )
@@ -210,9 +233,12 @@ fn render_file_header(file_diff: &FileDiff, path: &str) -> String {
   )
 }
 
-fn render_hunk_table(hunk: &Hunk, file_path: &str, comments: &[CommentThread]) -> String {
+fn render_hunk_table(hunk: &Hunk, file_path: &str, hunk_index: usize, comments: &[CommentThread]) -> String {
   let mut html = String::new();
-  html.push_str("<table class=\"diff-table\">\n");
+  html.push_str(&format!(
+    "<table class=\"diff-table\" data-comment-target=\"{}:{}\">\n",
+    html_escape(file_path), hunk_index
+  ));
 
   // Hunk header row
   html.push_str("<tr class=\"diff-hunk-header\">");
@@ -258,9 +284,9 @@ fn render_hunk_table(hunk: &Hunk, file_path: &str, comments: &[CommentThread]) -
       html_escape(content)
     ));
 
-    // Insert comment rows at this offset
+    // Insert inline comment rows at this offset
     for thread in comments.iter().filter(|t| t.root.line_offset == offset) {
-      html.push_str(&render_comment_thread(thread));
+      html.push_str(&render_inline_comment_thread(thread));
     }
   }
 
@@ -268,28 +294,7 @@ fn render_hunk_table(hunk: &Hunk, file_path: &str, comments: &[CommentThread]) -
   html
 }
 
-fn parse_hunk_start(header: &str) -> (u32, u32) {
-  // Parse @@ -old_start,old_count +new_start,new_count @@
-  let header = header.strip_prefix("@@ ").unwrap_or(header);
-  let end = header.find(" @@").unwrap_or(header.len());
-  let range_str = &header[..end];
-
-  let mut parts = range_str.split(' ');
-  let old_start = parts.next()
-    .and_then(|s| s.strip_prefix('-'))
-    .and_then(|s| s.split(',').next())
-    .and_then(|s| s.parse::<u32>().ok())
-    .unwrap_or(1);
-  let new_start = parts.next()
-    .and_then(|s| s.strip_prefix('+'))
-    .and_then(|s| s.split(',').next())
-    .and_then(|s| s.parse::<u32>().ok())
-    .unwrap_or(1);
-
-  (new_start, old_start)
-}
-
-fn render_comment_thread(thread: &CommentThread) -> String {
+fn render_inline_comment_thread(thread: &CommentThread) -> String {
   let mut html = String::new();
   html.push_str("<tr class=\"comment-row\"><td colspan=\"3\">\n");
   html.push_str("<div class=\"comment-thread\">\n");
@@ -316,6 +321,27 @@ fn render_comment_thread(thread: &CommentThread) -> String {
   html
 }
 
+fn parse_hunk_start(header: &str) -> (u32, u32) {
+  // Parse @@ -old_start,old_count +new_start,new_count @@
+  let header = header.strip_prefix("@@ ").unwrap_or(header);
+  let end = header.find(" @@").unwrap_or(header.len());
+  let range_str = &header[..end];
+
+  let mut parts = range_str.split(' ');
+  let old_start = parts.next()
+    .and_then(|s| s.strip_prefix('-'))
+    .and_then(|s| s.split(',').next())
+    .and_then(|s| s.parse::<u32>().ok())
+    .unwrap_or(1);
+  let new_start = parts.next()
+    .and_then(|s| s.strip_prefix('+'))
+    .and_then(|s| s.split(',').next())
+    .and_then(|s| s.parse::<u32>().ok())
+    .unwrap_or(1);
+
+  (new_start, old_start)
+}
+
 fn render_single_comment(comment: &ReviewComment, is_outdated: bool) -> String {
   let outdated_badge = if is_outdated {
     " <span class=\"outdated-badge\">outdated</span>"
@@ -329,7 +355,7 @@ fn render_single_comment(comment: &ReviewComment, is_outdated: bool) -> String {
         <span class=\"comment-author\">{}</span>{outdated_badge}\
         <span class=\"comment-date\">{}</span>\
       </div>\
-      <div class=\"comment-body\">{}</div>\
+      <div class=\"comment-body markdown-body\">{}</div>\
     </div>\n",
     html_escape(&comment.user.login),
     format_date(&comment.created_at),
@@ -353,7 +379,7 @@ fn render_issue_comments(comments: &[IssueComment]) -> String {
           <span class=\"comment-author\">{}</span>\
           <span class=\"comment-date\">{}</span>\
         </div>\
-        <div class=\"comment-body\">{}</div>\
+        <div class=\"comment-body markdown-body\">{}</div>\
       </div>\n",
       html_escape(&comment.user.login),
       format_date(&comment.created_at),
@@ -402,7 +428,7 @@ fn render_outdated_comments(comments: &[OutdatedComment]) -> String {
             <span class=\"outdated-badge\">outdated</span>\
             <span class=\"comment-date\">{}</span>\
           </div>\
-          <div class=\"comment-body\">{}</div>\
+          <div class=\"comment-body markdown-body\">{}</div>\
         </div>\n",
         html_escape(&oc.comment.user.login),
         format_date(&oc.comment.created_at),
@@ -416,12 +442,88 @@ fn render_outdated_comments(comments: &[OutdatedComment]) -> String {
   html
 }
 
+fn render_resolved_section(threads: &[GqlReviewThread]) -> String {
+  if threads.is_empty() {
+    return String::new();
+  }
+
+  let total_comments: usize = threads.iter().map(|t| t.comments.len()).sum();
+  let mut html = String::new();
+  html.push_str("<div class=\"collapsible\" id=\"resolved-comments\">\n");
+  html.push_str(&format!(
+    "<div class=\"collapsible-header\">Resolved ({} threads, {} comments)</div>\n",
+    threads.len(), total_comments
+  ));
+  html.push_str("<div class=\"collapsible-body\">\n");
+
+  for thread in threads {
+    html.push_str(&format!(
+      "<div class=\"panel-comment-group\">\n<div class=\"panel-comment-file\">{}</div>\n",
+      html_escape(&thread.path)
+    ));
+    html.push_str("<div class=\"comment-thread\">\n");
+    for comment in &thread.comments {
+      html.push_str(&render_single_comment(comment, false));
+    }
+    html.push_str("</div>\n</div>\n");
+  }
+
+  html.push_str("</div>\n</div>\n");
+  html
+}
+
+fn render_bot_section(review_threads: &[GqlReviewThread], issue_comments: &[IssueComment]) -> String {
+  if review_threads.is_empty() && issue_comments.is_empty() {
+    return String::new();
+  }
+
+  let mut html = String::new();
+  let count = review_threads.len() + issue_comments.len();
+  html.push_str("<div class=\"collapsible\" id=\"bot-comments\">\n");
+  html.push_str(&format!(
+    "<div class=\"collapsible-header\">Bot Comments ({})</div>\n",
+    count
+  ));
+  html.push_str("<div class=\"collapsible-body\">\n");
+
+  for thread in review_threads {
+    html.push_str(&format!(
+      "<div class=\"panel-comment-group\">\n<div class=\"panel-comment-file\">{}</div>\n",
+      html_escape(&thread.path)
+    ));
+    html.push_str("<div class=\"comment-thread\">\n");
+    for comment in &thread.comments {
+      html.push_str(&render_single_comment(comment, false));
+    }
+    html.push_str("</div>\n</div>\n");
+  }
+
+  for comment in issue_comments {
+    html.push_str(&format!(
+      "<div class=\"issue-comment\">\
+        <div class=\"comment-header\">\
+          <span class=\"comment-author\">{}</span>\
+          <span class=\"comment-date\">{}</span>\
+        </div>\
+        <div class=\"comment-body markdown-body\">{}</div>\
+      </div>\n",
+      html_escape(&comment.user.login),
+      format_date(&comment.created_at),
+      md_to_html(&comment.body),
+    ));
+  }
+
+  html.push_str("</div>\n</div>\n");
+  html
+}
+
 fn render_misc(misc: &[ResolvedChapter]) -> String {
   if misc.is_empty() {
     return String::new();
   }
 
   let mut html = String::new();
+  html.push_str("<div id=\"misc-section\">\n");
 
   for (i, ch) in misc.iter().enumerate() {
     html.push_str("<section class=\"chapter\">\n");
@@ -431,7 +533,7 @@ fn render_misc(misc: &[ResolvedChapter]) -> String {
     ));
     if let Some(desc) = &ch.description {
       html.push_str(&format!(
-        "<div class=\"chapter-description\">{}</div>\n",
+        "<div class=\"chapter-description markdown-body\">{}</div>\n",
         md_to_html(desc)
       ));
     }
@@ -441,6 +543,8 @@ fn render_misc(misc: &[ResolvedChapter]) -> String {
 
     html.push_str("</section>\n");
   }
+
+  html.push_str("</div>\n");
   html
 }
 
@@ -464,7 +568,7 @@ fn render_uncategorized(uncategorized: &[UncategorizedHunk]) -> String {
     html.push_str(&render_file_header(&uncategorized[i].file_diff, file_path));
 
     while i < uncategorized.len() && uncategorized[i].file_path == *file_path {
-      html.push_str(&render_hunk_table(&uncategorized[i].hunk, &uncategorized[i].file_path, &uncategorized[i].comments));
+      html.push_str(&render_hunk_table(&uncategorized[i].hunk, &uncategorized[i].file_path, uncategorized[i].hunk_index, &uncategorized[i].comments));
       i += 1;
     }
 

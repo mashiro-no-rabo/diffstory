@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="show-comments">
+<html lang="en" {{HTML_CLASS}}>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -34,12 +34,22 @@
     {{COVERAGE}}
   </header>
   {{DESCRIPTION}}
-  {{ISSUE_COMMENTS}}
   {{CHAPTERS}}
   {{MISC}}
   {{OUTDATED_COMMENTS}}
   {{UNCATEGORIZED}}
 </main>
+<aside class="right-panel" id="right-panel">
+  <div class="right-panel-header">
+    <span class="right-panel-title">Other Comments</span>
+  </div>
+  <div class="right-panel-body">
+    {{ISSUE_COMMENTS}}
+    {{RESOLVED_COMMENTS}}
+    {{BOT_COMMENTS}}
+    <div id="draft-area"></div>
+  </div>
+</aside>
 <template id="comment-form-tpl">
   <div class="comment-form">
     <textarea class="comment-textarea" placeholder="Write a comment..." rows="3"></textarea>

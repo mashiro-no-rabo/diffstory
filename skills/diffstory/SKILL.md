@@ -156,8 +156,11 @@ Once validated and the user is happy with the HTML preview, ask the user if they
 
 When viewing a PR URL, the HTML viewer automatically shows:
 - **Inline review comments** at the exact diff lines they reference, with threaded replies
-- **Issue comments** in a "Discussion" section above chapters
+- A **right panel** with all comments grouped by file, scroll-synced to the diff viewport
+- **Issue comments** in a "Discussion" section in the right panel
+- **Resolved threads** in a collapsible section (auto-detected via GitHub's resolved state)
+- **Bot comments** filtered into their own collapsible section
 - **Outdated comments** in a collapsible section for comments that no longer map to current lines
-- A **comments toggle** in the toolbar to show/hide all comments
+- A **comments toggle** in the right panel header to show/hide all comments and the panel
 
-Users can click diff line numbers to draft new comments across the entire diff. The **Export** button (&#128230;) in the toolbar copies a batch shell script with all `gh api` commands to the clipboard — run it to post all comments at once. Individual comments also have a "Copy gh command" button for one-offs. Drafts are auto-saved to localStorage.
+Users can click diff line numbers to draft new comments — the form appears in the right panel's draft area. The **Export** button in the right panel copies a batch shell script with all `gh api` commands to the clipboard — run it to post all comments at once. Drafts are auto-saved to localStorage.

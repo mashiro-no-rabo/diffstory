@@ -175,11 +175,20 @@ html:not(.show-comments) .icon-comments-off { display: inline; }
   padding: 12px 16px 4px;
 }
 
+/* Misc chapter TOC links */
+.toc a[href^="#misc-"] {
+  color: var(--fg-muted);
+}
+
 /* Main content */
 .content {
   margin-left: 260px;
   padding: 32px 40px;
   max-width: 960px;
+}
+
+html.has-right-panel.show-comments .content {
+  margin-right: 340px;
 }
 
 html.split-view .content {
@@ -283,6 +292,11 @@ html.split-view .content {
 
 .chapter-description > :first-child { margin-top: 0; }
 .chapter-description > :last-child { margin-bottom: 0; }
+
+/* Misc section styling */
+#misc-section .chapter-header h2 {
+  color: var(--fg-muted);
+}
 
 /* Diff file block */
 .diff-file {
@@ -390,18 +404,72 @@ html.split-view .content {
 .diff-line-add .diff-marker { color: var(--add-marker); }
 .diff-line-del .diff-marker { color: var(--del-marker); }
 
-/* Comment threads (inline in diff) */
-.comment-row {
-  background: var(--comment-bg);
+/* Right panel for comments */
+.right-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 320px;
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--bg-subtle);
+  border-left: 1px solid var(--border);
+  z-index: 10;
+  display: none;
 }
 
-.comment-row > td {
-  padding: 8px 12px !important;
-  white-space: normal !important;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
-  font-size: 13px;
+html.has-right-panel.show-comments .right-panel {
+  display: block;
 }
 
+.right-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 12px 8px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg-subtle);
+  z-index: 1;
+}
+
+.right-panel-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.right-panel-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.right-panel-body {
+  padding: 8px 0;
+}
+
+.right-panel .issue-comments {
+  margin: 0 0 8px;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+}
+
+.panel-comment-group {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-comment-file {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  margin-bottom: 6px;
+}
+
+/* Comment threads */
 .comment-thread {
   border-left: 3px solid var(--comment-border);
   padding-left: 12px;
@@ -469,9 +537,21 @@ html.split-view .content {
   text-decoration: underline;
 }
 
+/* Comment threads (inline in diff) */
+.comment-row {
+  background: var(--comment-bg);
+}
+
+.comment-row > td {
+  padding: 8px 12px !important;
+  white-space: normal !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+}
+
 /* Comment visibility toggle */
 html:not(.show-comments) .comment-row,
-html:not(.show-comments) .issue-comments,
+html:not(.show-comments) .right-panel,
 html:not(.show-comments) .comment-form,
 html:not(.show-comments) #outdated-comments {
   display: none;
@@ -667,7 +747,7 @@ html.split-view .diff-split { display: table; }
 }
 
 .collapsible-header::before {
-  content: "▶";
+  content: "\25B6";
   font-size: 10px;
   transition: transform 0.15s;
 }
@@ -685,6 +765,87 @@ html.split-view .diff-split { display: table; }
   display: block;
 }
 
+/* Right panel collapsibles need smaller spacing */
+.right-panel .collapsible {
+  margin-bottom: 0;
+}
+
+.right-panel .collapsible-header {
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.right-panel .collapsible-body {
+  padding-top: 0;
+}
+
+/* GitHub-flavored markdown styles */
+.markdown-body blockquote {
+  margin: 8px 0;
+  padding: 4px 16px;
+  border-left: 3px solid var(--border);
+  color: var(--fg-muted);
+}
+
+.markdown-body pre {
+  background: var(--bg-subtle);
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 12px;
+}
+
+.markdown-body pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+.markdown-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+}
+
+.markdown-body th, .markdown-body td {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+}
+
+.markdown-body th {
+  background: var(--bg-subtle);
+  font-weight: 600;
+}
+
+.markdown-body ul, .markdown-body ol {
+  padding-left: 24px;
+  margin: 8px 0;
+}
+
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}
+
+.markdown-body img {
+  max-width: 100%;
+}
+
+.markdown-body a {
+  color: var(--link-active-border);
+}
+
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  margin: 12px 0 8px;
+  font-weight: 600;
+}
+
+.markdown-body h1 { font-size: 1.3em; }
+.markdown-body h2 { font-size: 1.15em; }
+.markdown-body h3 { font-size: 1.05em; }
+
 /* Responsive */
 @media (max-width: 768px) {
   .sidebar {
@@ -694,4 +855,19 @@ html.split-view .diff-split { display: table; }
     margin-left: 0;
     padding: 16px;
   }
+  .right-panel {
+    display: none !important;
+  }
+  html.has-right-panel.show-comments .content {
+    margin-right: 0;
+  }
+}
+
+/* Reduce right panel width in split view */
+html.split-view.has-right-panel.show-comments .right-panel {
+  width: 280px;
+}
+
+html.split-view.has-right-panel.show-comments .content {
+  margin-right: 300px;
 }
