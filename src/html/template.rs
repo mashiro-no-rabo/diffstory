@@ -79,13 +79,17 @@ fn render_toc(
     ));
   }
 
-  if !misc.is_empty() || !uncategorized.is_empty() {
-    html.push_str("<li class=\"toc-section\">Other</li>\n");
-  }
   if !misc.is_empty() {
-    html.push_str("<li><a href=\"#misc\">Misc</a></li>\n");
+    html.push_str("<li class=\"toc-section\">Misc</li>\n");
+    for (i, ch) in misc.iter().enumerate() {
+      html.push_str(&format!(
+        "<li><a href=\"#misc-{i}\" data-chapter=\"misc-{i}\">{}</a></li>\n",
+        html_escape(&ch.title)
+      ));
+    }
   }
   if !uncategorized.is_empty() {
+    html.push_str("<li class=\"toc-section\">Other</li>\n");
     html.push_str("<li><a href=\"#uncategorized\">Uncategorized</a></li>\n");
   }
 
@@ -197,14 +201,11 @@ fn render_misc(misc: &[ResolvedChapter]) -> String {
   }
 
   let mut html = String::new();
-  html.push_str("<div class=\"collapsible\" id=\"misc\">\n");
-  html.push_str("<div class=\"collapsible-header\">Misc</div>\n");
-  html.push_str("<div class=\"collapsible-body\">\n");
 
-  for ch in misc {
+  for (i, ch) in misc.iter().enumerate() {
     html.push_str("<section class=\"chapter\">\n");
     html.push_str(&format!(
-      "<div class=\"chapter-header\">\n<h2>{}</h2>\n",
+      "<div class=\"chapter-header\" id=\"misc-{i}\">\n<h2>{}</h2>\n",
       html_escape(&ch.title)
     ));
     if let Some(desc) = &ch.description {
@@ -221,8 +222,6 @@ fn render_misc(misc: &[ResolvedChapter]) -> String {
 
     html.push_str("</section>\n");
   }
-
-  html.push_str("</div>\n</div>\n");
   html
 }
 
