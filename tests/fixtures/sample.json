@@ -1,9 +1,9 @@
 {
-  "description": "This PR adds interactive greeting and sets up the library structure.",
+  "description": "This PR adds interactive greeting via `io::stdin()` and sets up the `lib.rs` library structure.",
   "chapters": [
     {
       "title": "Interactive Greeting",
-      "description": "Replace the static hello with an interactive prompt that reads the user's name.",
+      "description": "Replace the static `println!` with an interactive prompt that reads the user's name from `stdin`.",
       "hunks": [
         {
           "file": "src/main.rs",
@@ -14,7 +14,7 @@
     },
     {
       "title": "Library Setup",
-      "description": "Create the library crate with a public module and version function.",
+      "description": "Create `src/lib.rs` with a public `greet` module and a `version()` function.",
       "hunks": [
         {
           "file": "src/lib.rs",

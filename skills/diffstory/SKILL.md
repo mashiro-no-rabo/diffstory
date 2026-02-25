@@ -140,5 +140,5 @@ Then ask the user if they want to update the PR description directly using `gh`.
 - Group hunks by **logical concern**, not by file. A single file's hunks may span multiple chapters.
 - Write descriptions that explain **why**, not just what. Reviewers can see the code — they need the narrative.
 - Keep chapter titles short (3-6 words).
-- Use notes sparingly — only when a hunk needs context that isn't obvious from the description.
+- **Avoid per-hunk notes.** A chapter's description should be sufficient to explain all its hunks. Only add a `note` to a hunk when it would be genuinely confusing without one (e.g. a non-obvious side effect, a subtle ordering dependency). Most chapters should have zero notes.
 - Order chapters to tell a story: setup before usage, core logic before edge cases.
