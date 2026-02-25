@@ -168,7 +168,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("{} uncategorized hunks", result.uncategorized_hunks);
           }
           println!("{} chapters", story.chapters.len());
-          println!("{} irrelevant hunks", story.irrelevant.len());
+          println!("{} misc chapters", story.misc.len());
         }
         None => {
           // Just validate JSON structure
@@ -176,7 +176,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
           println!("{} chapters", story.chapters.len());
           let total_refs: usize = story.chapters.iter().map(|c| c.hunks.len()).sum();
           println!("{total_refs} hunk references");
-          println!("{} irrelevant hunks", story.irrelevant.len());
+          println!("{} misc chapters", story.misc.len());
         }
       }
     }

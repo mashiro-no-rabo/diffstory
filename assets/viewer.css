@@ -456,17 +456,6 @@ html.split-view .diff-split { display: table; }
   display: block;
 }
 
-.irrelevant-reason {
-  margin-bottom: 16px;
-}
-
-.irrelevant-reason-label {
-  font-size: 13px;
-  color: var(--fg-muted);
-  margin-bottom: 8px;
-  font-style: italic;
-}
-
 /* Responsive */
 @media (max-width: 768px) {
   .sidebar {

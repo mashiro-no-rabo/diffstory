@@ -6,7 +6,7 @@ pub struct Storyline {
   pub description: Option<String>,
   pub chapters: Vec<Chapter>,
   #[serde(default, skip_serializing_if = "Vec::is_empty")]
-  pub irrelevant: Vec<IrrelevantHunk>,
+  pub misc: Vec<Chapter>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,12 +23,4 @@ pub struct HunkRef {
   pub hunk_index: usize,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub note: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IrrelevantHunk {
-  pub file: String,
-  pub hunk_index: usize,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub reason: Option<String>,
 }

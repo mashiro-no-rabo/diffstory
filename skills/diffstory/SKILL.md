@@ -22,7 +22,15 @@ You are building a **diffstory** — a narrative that organizes a PR's diff hunk
 
 ## Step 1: Get the diff and check for existing storyline
 
-Get the diff for the current branch against the base branch:
+First, check if the current change has multiple parents (e.g. a merge commit):
+
+```
+jj log -r @-
+```
+
+If this returns multiple changes, ask the user which parent to diff against before proceeding.
+
+Then get the diff for the current branch against the base branch:
 
 ```
 jj diff --git -f main
@@ -81,7 +89,7 @@ For each chapter, draft:
 - **hunks**: which file + hunk_index pairs belong here
 - **notes**: optional inline annotations for specific hunks that need extra context
 
-Also identify any hunks that are **irrelevant** (generated code, mass renames, formatting-only, etc.) and propose reasons.
+Also identify any hunks that belong in **misc** chapters (generated code, mass renames, formatting-only, etc.) — these use the same `{title, description, hunks}` structure as regular chapters but are displayed in a collapsible "Misc" section.
 
 After each round of edits, re-run `diffstory view --story <path> --diff <diff-path>` so the user can refresh the browser and see the updated story.
 
@@ -93,27 +101,23 @@ Write the updated storyline JSON and run:
 diffstory validate --story <path> --diff <diff-path>
 ```
 
-Every hunk must be assigned to exactly one chapter or marked irrelevant. If coverage is not 100%, identify the missing hunks and ask the user where they belong.
+Every hunk must be assigned to exactly one chapter or misc chapter. If coverage is not 100%, identify the missing hunks and ask the user where they belong.
 
 Iterate until validation shows 100% coverage, re-running `diffstory view` after each change.
 
 ## Step 6: Embed in PR
 
-Once validated and the user is happy with the HTML preview, encode the storyline:
+Once validated and the user is happy with the HTML preview, ask the user if they want to update the PR description directly using `gh`. If confirmed:
 
-```
-diffstory encode --story <path> --wrap
-```
+**CRITICAL**: Never load the encoded base64 string into context — it's opaque data. Pipe everything through files:
 
-Then ask the user if they want to update the PR description directly using `gh`. If confirmed:
-
-1. Get the current PR description: `gh pr view --json body -q .body`
-2. Check if the body already contains a diffstory `<details>` block (look for `<!--diffstory:` within a `<details>` tag)
-3. If found, replace **only** that `<details>...</details>` block with the new encoded output. Do NOT modify any other lines of the description.
-4. If not found, append the encoded output to the end of the existing description.
-5. Update the PR: `gh pr edit --body <new-body>`
-
-**CRITICAL**: When editing the PR body, preserve every other line exactly as-is. Only touch the diffstory `<details>` block.
+1. Encode to a temp file: `diffstory encode --story <path> --wrap > $SESSION/encoded.txt`
+2. Get current PR body to a temp file: `gh pr view --json body -q .body > $SESSION/pr_body.txt`
+3. Check if the body already contains a diffstory `<details>` block (look for `<!--diffstory:` within a `<details>` tag)
+4. Do the replacement/append in a script (sed/python) that reads both files and writes the new body to `$SESSION/pr_body_new.txt`:
+   - If a `<details>` block with `<!--diffstory:` exists, replace **only** that block with the new encoded output. Do NOT modify any other lines.
+   - If not found, append the encoded output to the end of the existing description.
+5. Update the PR: `gh pr edit --body-file $SESSION/pr_body_new.txt`
 
 ## Storyline JSON format
 
@@ -129,8 +133,13 @@ Then ask the user if they want to update the PR description directly using `gh`.
       ]
     }
   ],
-  "irrelevant": [
-    { "file": "README.md", "hunk_index": 0, "reason": "Formatting only" }
+  "misc": [
+    {
+      "title": "Routine Updates",
+      "hunks": [
+        { "file": "README.md", "hunk_index": 0 }
+      ]
+    }
   ]
 }
 ```

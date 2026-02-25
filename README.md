@@ -49,10 +49,15 @@ diffstory validate --story story.json --diff changes.diff
       ]
     }
   ],
-  "irrelevant": [
-    { "file": "README.md", "hunk_index": 0, "reason": "Routine update" }
+  "misc": [
+    {
+      "title": "Routine Updates",
+      "hunks": [
+        { "file": "README.md", "hunk_index": 0 }
+      ]
+    }
   ]
 }
 ```
 
-Hunks are referenced by file path and 0-based index within that file's diff. Every hunk should be assigned to a chapter or marked irrelevant. Unassigned hunks appear in an "Uncategorized" section in the viewer.
+Hunks are referenced by file path and 0-based index within that file's diff. Every hunk should be assigned to a chapter or a misc chapter. Unassigned hunks appear in an "Uncategorized" section in the viewer.

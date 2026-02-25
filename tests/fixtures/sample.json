@@ -28,11 +28,15 @@
       ]
     }
   ],
-  "irrelevant": [
+  "misc": [
     {
-      "file": "README.md",
-      "hunk_index": 0,
-      "reason": "Routine title update"
+      "title": "Routine Updates",
+      "hunks": [
+        {
+          "file": "README.md",
+          "hunk_index": 0
+        }
+      ]
     }
   ]
 }

@@ -7,7 +7,7 @@ use crate::model::{HunkRef, Storyline};
 pub struct ResolvedStory {
   pub description: Option<String>,
   pub chapters: Vec<ResolvedChapter>,
-  pub irrelevant_groups: Vec<IrrelevantGroup>,
+  pub misc: Vec<ResolvedChapter>,
   pub uncategorized: Vec<UncategorizedHunk>,
   pub warnings: Vec<String>,
 }
@@ -29,12 +29,6 @@ pub struct ResolvedHunk {
 }
 
 #[derive(Debug)]
-pub struct IrrelevantGroup {
-  pub reason: Option<String>,
-  pub hunks: Vec<ResolvedHunk>,
-}
-
-#[derive(Debug)]
 pub struct UncategorizedHunk {
   pub file_path: String,
   pub file_diff: FileDiff,
@@ -53,44 +47,10 @@ pub fn resolve(storyline: &Storyline, diff: &ParsedDiff) -> ResolvedStory {
   let file_map: HashMap<&str, &FileDiff> = diff.files.iter().map(|f| (f.display_path(), f)).collect();
 
   // Resolve chapters
-  let chapters: Vec<ResolvedChapter> = storyline
-    .chapters
-    .iter()
-    .map(|ch| {
-      let hunks = ch
-        .hunks
-        .iter()
-        .filter_map(|href| resolve_hunk_ref(href, &file_map, &mut referenced, &mut warnings))
-        .collect();
-      ResolvedChapter {
-        title: ch.title.clone(),
-        description: ch.description.clone(),
-        hunks,
-      }
-    })
-    .collect();
+  let chapters = resolve_chapters(&storyline.chapters, &file_map, &mut referenced, &mut warnings);
 
-  // Resolve irrelevant hunks, grouped by reason
-  let mut irrelevant_map: Vec<(Option<String>, Vec<ResolvedHunk>)> = Vec::new();
-  for ih in &storyline.irrelevant {
-    let href = HunkRef {
-      file: ih.file.clone(),
-      hunk_index: ih.hunk_index,
-      note: None,
-    };
-    if let Some(resolved) = resolve_hunk_ref(&href, &file_map, &mut referenced, &mut warnings) {
-      let reason = ih.reason.clone();
-      if let Some(group) = irrelevant_map.iter_mut().find(|(r, _)| *r == reason) {
-        group.1.push(resolved);
-      } else {
-        irrelevant_map.push((reason, vec![resolved]));
-      }
-    }
-  }
-  let irrelevant_groups = irrelevant_map
-    .into_iter()
-    .map(|(reason, hunks)| IrrelevantGroup { reason, hunks })
-    .collect();
+  // Resolve misc chapters
+  let misc = resolve_chapters(&storyline.misc, &file_map, &mut referenced, &mut warnings);
 
   // Find uncategorized hunks
   let mut uncategorized = Vec::new();
@@ -112,10 +72,33 @@ pub fn resolve(storyline: &Storyline, diff: &ParsedDiff) -> ResolvedStory {
   ResolvedStory {
     description: storyline.description.clone(),
     chapters,
-    irrelevant_groups,
+    misc,
     uncategorized,
     warnings,
   }
+}
+
+fn resolve_chapters(
+  chapters: &[crate::model::Chapter],
+  file_map: &HashMap<&str, &FileDiff>,
+  referenced: &mut HashSet<HunkKey>,
+  warnings: &mut Vec<String>,
+) -> Vec<ResolvedChapter> {
+  chapters
+    .iter()
+    .map(|ch| {
+      let hunks = ch
+        .hunks
+        .iter()
+        .filter_map(|href| resolve_hunk_ref(href, file_map, referenced, warnings))
+        .collect();
+      ResolvedChapter {
+        title: ch.title.clone(),
+        description: ch.description.clone(),
+        hunks,
+      }
+    })
+    .collect()
 }
 
 fn resolve_hunk_ref(

@@ -71,7 +71,7 @@ mod tests {
           note: Some("First change".to_string()),
         }],
       }],
-      irrelevant: vec![],
+      misc: vec![],
     }
   }
 

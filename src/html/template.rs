@@ -1,7 +1,7 @@
 use comrak::{markdown_to_html, Options};
 
 use crate::diff_parser::{DiffLine, FileDiff, Hunk};
-use crate::matcher::{IrrelevantGroup, ResolvedChapter, ResolvedHunk, ResolvedStory, UncategorizedHunk};
+use crate::matcher::{ResolvedChapter, ResolvedHunk, ResolvedStory, UncategorizedHunk};
 
 const TEMPLATE: &str = include_str!("../../assets/template.html");
 const CSS: &str = include_str!("../../assets/viewer.css");
@@ -20,9 +20,9 @@ pub fn render(story: &ResolvedStory, title: Option<&str>, author: Option<&str>) 
     None => String::new(),
   };
 
-  let toc = render_toc(&story.chapters, &story.irrelevant_groups, &story.uncategorized);
+  let toc = render_toc(&story.chapters, &story.misc, &story.uncategorized);
   let chapters = render_chapters(&story.chapters);
-  let irrelevant = render_irrelevant(&story.irrelevant_groups);
+  let misc = render_misc(&story.misc);
   let uncategorized = render_uncategorized(&story.uncategorized);
   let (coverage, sidebar_coverage) = render_coverage(story);
 
@@ -37,14 +37,14 @@ pub fn render(story: &ResolvedStory, title: Option<&str>, author: Option<&str>) 
     .replace("{{SIDEBAR_COVERAGE}}", &sidebar_coverage)
     .replace("{{DESCRIPTION}}", &description)
     .replace("{{CHAPTERS}}", &chapters)
-    .replace("{{IRRELEVANT}}", &irrelevant)
+    .replace("{{MISC}}", &misc)
     .replace("{{UNCATEGORIZED}}", &uncategorized)
 }
 
 fn render_coverage(story: &ResolvedStory) -> (String, String) {
   let chapter_hunks: usize = story.chapters.iter().map(|c| c.hunks.len()).sum();
-  let irrelevant_hunks: usize = story.irrelevant_groups.iter().map(|g| g.hunks.len()).sum();
-  let covered = chapter_hunks + irrelevant_hunks;
+  let misc_hunks: usize = story.misc.iter().map(|c| c.hunks.len()).sum();
+  let covered = chapter_hunks + misc_hunks;
   let total = covered + story.uncategorized.len();
 
   if total == 0 {
@@ -67,7 +67,7 @@ fn render_coverage(story: &ResolvedStory) -> (String, String) {
 
 fn render_toc(
   chapters: &[ResolvedChapter],
-  irrelevant: &[IrrelevantGroup],
+  misc: &[ResolvedChapter],
   uncategorized: &[UncategorizedHunk],
 ) -> String {
   let mut html = String::new();
@@ -79,11 +79,11 @@ fn render_toc(
     ));
   }
 
-  if !irrelevant.is_empty() || !uncategorized.is_empty() {
+  if !misc.is_empty() || !uncategorized.is_empty() {
     html.push_str("<li class=\"toc-section\">Other</li>\n");
   }
-  if !irrelevant.is_empty() {
-    html.push_str("<li><a href=\"#irrelevant\">Irrelevant</a></li>\n");
+  if !misc.is_empty() {
+    html.push_str("<li><a href=\"#misc\">Misc</a></li>\n");
   }
   if !uncategorized.is_empty() {
     html.push_str("<li><a href=\"#uncategorized\">Uncategorized</a></li>\n");
@@ -191,27 +191,35 @@ fn render_hunk_table(hunk: &Hunk) -> String {
   html
 }
 
-fn render_irrelevant(groups: &[IrrelevantGroup]) -> String {
-  if groups.is_empty() {
+fn render_misc(misc: &[ResolvedChapter]) -> String {
+  if misc.is_empty() {
     return String::new();
   }
 
   let mut html = String::new();
-  html.push_str("<div class=\"collapsible\" id=\"irrelevant\">\n");
-  html.push_str("<div class=\"collapsible-header\">Irrelevant Changes</div>\n");
+  html.push_str("<div class=\"collapsible\" id=\"misc\">\n");
+  html.push_str("<div class=\"collapsible-header\">Misc</div>\n");
   html.push_str("<div class=\"collapsible-body\">\n");
 
-  for group in groups {
-    let reason_label = group.reason.as_deref().unwrap_or("No reason given");
-    html.push_str("<div class=\"irrelevant-reason\">\n");
+  for ch in misc {
+    html.push_str("<section class=\"chapter\">\n");
     html.push_str(&format!(
-      "<div class=\"irrelevant-reason-label\">{}</div>\n",
-      html_escape(reason_label)
+      "<div class=\"chapter-header\">\n<h2>{}</h2>\n",
+      html_escape(&ch.title)
     ));
-    for rh in &group.hunks {
-      html.push_str(&render_resolved_hunk(rh));
+    if let Some(desc) = &ch.description {
+      html.push_str(&format!(
+        "<div class=\"chapter-description\">{}</div>\n",
+        md_to_html(desc)
+      ));
     }
     html.push_str("</div>\n");
+
+    for resolved_hunk in &ch.hunks {
+      html.push_str(&render_resolved_hunk(resolved_hunk));
+    }
+
+    html.push_str("</section>\n");
   }
 
   html.push_str("</div>\n</div>\n");
