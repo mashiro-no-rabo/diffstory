@@ -33,7 +33,7 @@ If that fails, fall back to:
 git diff main...HEAD
 ```
 
-Save the diff to a temporary file for later use with `diffstory validate`.
+Generate a unique session ID (e.g. using `mktemp -d /tmp/diffstory-XXXXXX`) and save all files under that directory — e.g. `$SESSION/diff.patch` and `$SESSION/story.json`. This allows multiple sessions to work on different diffs in parallel without overwriting each other.
 
 Then check if the PR already has an embedded diffstory by fetching the PR description:
 
