@@ -7,7 +7,7 @@ description = "Organize PR diffs into narrative stories for reviewers"
 [dependencies]
 base64 = "0.22"
 clap = { version = "4", features = ["derive"] }
-comrak = "0.34"
+comrak = "0.50"
 flate2 = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
