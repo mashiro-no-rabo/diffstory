@@ -1,22 +1,40 @@
-// TOC highlight via IntersectionObserver
+// TOC highlight via scroll position
 (function() {
-  var chapters = document.querySelectorAll('.chapter-header');
+  var chapters = Array.from(document.querySelectorAll('.chapter-header'));
   var tocLinks = document.querySelectorAll('.toc a[data-chapter]');
 
   if (chapters.length === 0) return;
 
-  var observer = new IntersectionObserver(function(entries) {
-    entries.forEach(function(entry) {
-      if (entry.isIntersecting) {
-        tocLinks.forEach(function(link) { link.classList.remove('active'); });
-        var id = entry.target.id;
-        var activeLink = document.querySelector('.toc a[href="#' + id + '"]');
-        if (activeLink) activeLink.classList.add('active');
+  function updateToc() {
+    var scrollTop = window.scrollY || document.documentElement.scrollTop;
+    var threshold = window.innerHeight * 0.15;
+    var activeId = null;
+
+    // Find the last chapter header that has scrolled past the threshold
+    for (var i = chapters.length - 1; i >= 0; i--) {
+      if (chapters[i].getBoundingClientRect().top <= threshold) {
+        activeId = chapters[i].id;
+        break;
+      }
+    }
+
+    tocLinks.forEach(function(link) {
+      if (activeId && link.getAttribute('href') === '#' + activeId) {
+        link.classList.add('active');
+      } else {
+        link.classList.remove('active');
       }
     });
-  }, { rootMargin: '-10% 0px -80% 0px' });
+  }
 
-  chapters.forEach(function(ch) { observer.observe(ch); });
+  var ticking = false;
+  window.addEventListener('scroll', function() {
+    if (!ticking) {
+      requestAnimationFrame(function() { updateToc(); ticking = false; });
+      ticking = true;
+    }
+  });
+  updateToc();
 })();
 
 // Collapse/expand
