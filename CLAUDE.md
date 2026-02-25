@@ -23,19 +23,14 @@ cargo test
 
 - Storyline JSON uses `file` + `hunk_index` (0-based) to reference diff hunks
 - PR embedding uses `<!--diffstory:BASE64-->` inside a `<details>` block
-- HTML viewer is fully self-contained (no external dependencies)
+- HTML viewer is fully self-contained (no external dependencies), with dark theme and split view toggles
 - Markdown in descriptions/notes rendered via comrak
 - GitHub integration uses `gh` CLI (no API token management needed)
-
-## TODO
-
-- Dark theme toggle
-- Split view (side-by-side diff) toggle — currently inline diff only
 
 ## Test Fixtures
 
 Sample diff and storyline in `tests/fixtures/`. Use for manual testing:
 ```
-cargo run -- validate --storyline tests/fixtures/sample.json --diff tests/fixtures/sample.diff
-cargo run -- view --storyline tests/fixtures/sample.json --diff tests/fixtures/sample.diff
+cargo run -- validate --story tests/fixtures/sample.json --diff tests/fixtures/sample.diff
+cargo run -- view --story tests/fixtures/sample.json --diff tests/fixtures/sample.diff
 ```

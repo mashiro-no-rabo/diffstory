@@ -11,6 +11,15 @@
 <body>
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-header">diffstory</div>
+  <div class="toolbar">
+    <button class="toolbar-btn" id="theme-toggle" title="Toggle dark theme">
+      <span class="icon-light">&#9789;</span><span class="icon-dark">&#9788;</span>
+    </button>
+    <button class="toolbar-btn" id="split-toggle" title="Toggle split view">
+      <span class="icon-inline">&#9776;</span><span class="icon-split">&#9783;</span>
+    </button>
+  </div>
+  {{SIDEBAR_COVERAGE}}
   <ul class="toc" id="toc">
     {{TOC}}
   </ul>
@@ -19,6 +28,7 @@
   <header class="page-header">
     <h1>{{HEADER_TITLE}}</h1>
     {{HEADER_AUTHOR}}
+    {{COVERAGE}}
   </header>
   {{DESCRIPTION}}
   {{CHAPTERS}}

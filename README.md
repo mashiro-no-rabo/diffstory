@@ -15,14 +15,14 @@ diffstory view https://github.com/owner/repo/pull/123
 
 **View from local files:**
 ```
-diffstory view --storyline story.json --diff changes.diff
+diffstory view --story story.json --diff changes.diff
 ```
 
 Both open a standalone HTML viewer in your browser.
 
 **Encode a storyline for embedding in a PR description:**
 ```
-diffstory encode --storyline story.json --wrap
+diffstory encode --story story.json --wrap
 ```
 
 **Decode back to JSON:**
@@ -32,7 +32,7 @@ diffstory decode < encoded.txt
 
 **Validate coverage:**
 ```
-diffstory validate --storyline story.json --diff changes.diff
+diffstory validate --story story.json --diff changes.diff
 ```
 
 ## Storyline Format

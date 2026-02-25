@@ -24,7 +24,7 @@ enum Commands {
     url: Option<String>,
     /// Path to storyline JSON file (required when not using a URL)
     #[arg(long)]
-    storyline: Option<String>,
+    story: Option<String>,
     /// Path to diff file (required when not using a URL)
     #[arg(long)]
     diff: Option<String>,
@@ -39,7 +39,7 @@ enum Commands {
   Encode {
     /// Path to storyline JSON file (or - for stdin)
     #[arg(long, default_value = "-")]
-    storyline: String,
+    story: String,
     /// Wrap in PR-embeddable HTML format
     #[arg(long)]
     wrap: bool,
@@ -54,7 +54,7 @@ enum Commands {
   Validate {
     /// Path to storyline JSON file
     #[arg(long)]
-    storyline: String,
+    story: String,
     /// Path to diff file (or - for stdin)
     #[arg(long)]
     diff: Option<String>,
@@ -94,7 +94,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   match cli.command {
     Commands::View {
       url,
-      storyline,
+      story,
       diff,
       title,
       author,
@@ -113,11 +113,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
           )
         }
         None => {
-          let storyline_path = storyline
-            .ok_or("--storyline is required when not using a URL")?;
+          let story_path = story
+            .ok_or("--story is required when not using a URL")?;
           let diff_path = diff
             .ok_or("--diff is required when not using a URL")?;
-          let story = load_storyline(&storyline_path)?;
+          let story = load_storyline(&story_path)?;
           let diff_text = read_input(&diff_path)?;
           let parsed_diff = diff_parser::parse_diff(&diff_text)?;
           let resolved = matcher::resolve(&story, &parsed_diff);
@@ -130,8 +130,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       eprintln!("Opening {}", out_path.display());
       open_file(&out_path)?;
     }
-    Commands::Encode { storyline, wrap } => {
-      let story = load_storyline(&storyline)?;
+    Commands::Encode { story: story_path, wrap } => {
+      let story = load_storyline(&story_path)?;
       let encoded = codec::encode(&story)?;
       if wrap {
         println!("{}", codec::wrap(&encoded));
@@ -146,8 +146,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       let story = codec::decode(&encoded)?;
       println!("{}", serde_json::to_string_pretty(&story)?);
     }
-    Commands::Validate { storyline, diff } => {
-      let story = load_storyline(&storyline)?;
+    Commands::Validate { story: story_path, diff } => {
+      let story = load_storyline(&story_path)?;
       match diff {
         Some(diff_path) => {
           let diff_text = read_input(&diff_path)?;

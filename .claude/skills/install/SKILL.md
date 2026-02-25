@@ -1,7 +1,6 @@
 ---
 name: install
 description: Install diffstory binary and register the storyline generator skill
-disable-model-invocation: true
 ---
 
 Install diffstory by running these steps in order:

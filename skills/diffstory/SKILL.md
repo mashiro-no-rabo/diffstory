@@ -1,17 +1,31 @@
 ---
 name: diffstory
-description: Generate a narrative storyline from the current branch's diff, organizing hunks into chapters for reviewers. Use when you want to create a guided code review story from PR changes.
+description: Generate a narrative storyline from the current branch's diff, or view an existing diffstory from a PR URL. Use when you want to create or view a guided code review story.
 allowed-tools: Bash, Read, Grep, Glob, Write
 ---
 
+## Viewing an existing diffstory
+
+If the user provides a **GitHub PR URL** and wants to view (not generate) a diffstory, simply run:
+
+```
+diffstory view <PR_URL>
+```
+
+This fetches the PR diff and embedded storyline, generates the HTML viewer, and opens it. Do NOT proceed with the generation steps below.
+
+---
+
+## Generating a new diffstory
+
 You are building a **diffstory** — a narrative that organizes a PR's diff hunks into chapters so reviewers can follow the author's intent.
 
-## Step 1: Get the diff
+## Step 1: Get the diff and check for existing storyline
 
 Get the diff for the current branch against the base branch:
 
 ```
-jj diff --git
+jj diff --git -f main
 ```
 
 If that fails, fall back to:
@@ -20,6 +34,20 @@ git diff main...HEAD
 ```
 
 Save the diff to a temporary file for later use with `diffstory validate`.
+
+Then check if the PR already has an embedded diffstory by fetching the PR description:
+
+```
+gh pr view --json body -q .body
+```
+
+If the body contains a `<!--diffstory:` marker inside a `<details>` tag, decode the existing storyline:
+
+```
+gh pr view --json body -q .body | diffstory decode
+```
+
+Save this as the starting storyline JSON. The existing chapters, descriptions, and notes should be used as the basis — preserve what's there and only adjust for hunks that have changed in the new diff.
 
 ## Step 2: Analyze the diff
 
@@ -33,7 +61,17 @@ README.md: 1 hunk (0)
 
 Read the actual source files to understand what the changes do.
 
-## Step 3: Build the storyline interactively
+## Step 3: Open the HTML viewer
+
+Before building the storyline, offer to open the HTML viewer so the user can see changes live as you edit. Write an initial empty storyline JSON and open it:
+
+```
+diffstory view --story <path> --diff <diff-path>
+```
+
+This opens `/tmp/diffstory.html` in the browser. Every time you update the storyline JSON and re-run `diffstory view`, the file is overwritten and the user can refresh the browser to see the latest version.
+
+## Step 4: Build the storyline interactively
 
 Propose an initial chapter structure based on your understanding of the changes. Each chapter should group related hunks that tell a coherent part of the story. Present your proposal and ask the user to confirm or adjust.
 
@@ -45,26 +83,37 @@ For each chapter, draft:
 
 Also identify any hunks that are **irrelevant** (generated code, mass renames, formatting-only, etc.) and propose reasons.
 
-## Step 4: Validate coverage
+After each round of edits, re-run `diffstory view --story <path> --diff <diff-path>` so the user can refresh the browser and see the updated story.
 
-Write the storyline JSON to a file and run:
+## Step 5: Validate coverage
+
+Write the updated storyline JSON and run:
 
 ```
-diffstory validate --storyline <path> --diff <diff-path>
+diffstory validate --story <path> --diff <diff-path>
 ```
 
 Every hunk must be assigned to exactly one chapter or marked irrelevant. If coverage is not 100%, identify the missing hunks and ask the user where they belong.
 
-Iterate until validation shows 100% coverage.
+Iterate until validation shows 100% coverage, re-running `diffstory view` after each change.
 
-## Step 5: Output
+## Step 6: Embed in PR
 
-Once validated, present two options:
+Once validated and the user is happy with the HTML preview, encode the storyline:
 
-1. **Encode for PR embedding**: `diffstory encode --storyline <path> --wrap` — outputs the `<details>` block to paste into the PR description
-2. **View HTML**: `diffstory view --storyline <path> --diff <diff-path>` — generates HTML in /tmp and opens it in the browser
+```
+diffstory encode --story <path> --wrap
+```
 
-Ask the user which they want (or both).
+Then ask the user if they want to update the PR description directly using `gh`. If confirmed:
+
+1. Get the current PR description: `gh pr view --json body -q .body`
+2. Check if the body already contains a diffstory `<details>` block (look for `<!--diffstory:` within a `<details>` tag)
+3. If found, replace **only** that `<details>...</details>` block with the new encoded output. Do NOT modify any other lines of the description.
+4. If not found, append the encoded output to the end of the existing description.
+5. Update the PR: `gh pr edit --body <new-body>`
+
+**CRITICAL**: When editing the PR body, preserve every other line exactly as-is. Only touch the diffstory `<details>` block.
 
 ## Storyline JSON format
 

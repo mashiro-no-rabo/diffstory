@@ -24,6 +24,7 @@ pub fn render(story: &ResolvedStory, title: Option<&str>, author: Option<&str>) 
   let chapters = render_chapters(&story.chapters);
   let irrelevant = render_irrelevant(&story.irrelevant_groups);
   let uncategorized = render_uncategorized(&story.uncategorized);
+  let (coverage, sidebar_coverage) = render_coverage(story);
 
   TEMPLATE
     .replace("{{TITLE}}", &html_escape(display_title))
@@ -32,10 +33,36 @@ pub fn render(story: &ResolvedStory, title: Option<&str>, author: Option<&str>) 
     .replace("{{TOC}}", &toc)
     .replace("{{HEADER_TITLE}}", &html_escape(display_title))
     .replace("{{HEADER_AUTHOR}}", &header_author)
+    .replace("{{COVERAGE}}", &coverage)
+    .replace("{{SIDEBAR_COVERAGE}}", &sidebar_coverage)
     .replace("{{DESCRIPTION}}", &description)
     .replace("{{CHAPTERS}}", &chapters)
     .replace("{{IRRELEVANT}}", &irrelevant)
     .replace("{{UNCATEGORIZED}}", &uncategorized)
+}
+
+fn render_coverage(story: &ResolvedStory) -> (String, String) {
+  let chapter_hunks: usize = story.chapters.iter().map(|c| c.hunks.len()).sum();
+  let irrelevant_hunks: usize = story.irrelevant_groups.iter().map(|g| g.hunks.len()).sum();
+  let covered = chapter_hunks + irrelevant_hunks;
+  let total = covered + story.uncategorized.len();
+
+  if total == 0 {
+    return (String::new(), String::new());
+  }
+
+  let pct = (covered as f64 / total as f64) * 100.0;
+  let cls = if story.uncategorized.is_empty() { "full" } else { "partial" };
+
+  let inner = format!(
+    "<div class=\"coverage\">\
+      <div class=\"coverage-bar\"><div class=\"coverage-fill {cls}\" style=\"width:{pct:.0}%\"></div></div>\
+      <span>{covered}/{total} hunks covered ({pct:.0}%)</span>\
+    </div>"
+  );
+
+  let sidebar = format!("<div class=\"sidebar-coverage\">{inner}</div>");
+  (inner, sidebar)
 }
 
 fn render_toc(
