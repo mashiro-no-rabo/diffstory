@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use crate::comments::{CommentMap, CommentThread, IssueComment, OutdatedComment};
 use crate::diff_parser::{FileDiff, Hunk, ParsedDiff};
 use crate::model::{HunkRef, Storyline};
 
@@ -10,6 +11,8 @@ pub struct ResolvedStory {
   pub misc: Vec<ResolvedChapter>,
   pub uncategorized: Vec<UncategorizedHunk>,
   pub warnings: Vec<String>,
+  pub issue_comments: Vec<IssueComment>,
+  pub outdated_comments: Vec<OutdatedComment>,
 }
 
 #[derive(Debug)]
@@ -26,6 +29,7 @@ pub struct ResolvedHunk {
   pub hunk: Hunk,
   pub hunk_index: usize,
   pub note: Option<String>,
+  pub comments: Vec<CommentThread>,
 }
 
 #[derive(Debug)]
@@ -34,23 +38,35 @@ pub struct UncategorizedHunk {
   pub file_diff: FileDiff,
   pub hunk: Hunk,
   pub hunk_index: usize,
+  pub comments: Vec<CommentThread>,
 }
 
 /// Key for tracking which hunks have been referenced.
 type HunkKey = (String, usize);
 
 pub fn resolve(storyline: &Storyline, diff: &ParsedDiff) -> ResolvedStory {
+  resolve_with_comments(storyline, diff, None, Vec::new(), Vec::new())
+}
+
+pub fn resolve_with_comments(
+  storyline: &Storyline,
+  diff: &ParsedDiff,
+  comments: Option<CommentMap>,
+  issue_comments: Vec<IssueComment>,
+  outdated_comments: Vec<OutdatedComment>,
+) -> ResolvedStory {
   let mut warnings = Vec::new();
   let mut referenced: HashSet<HunkKey> = HashSet::new();
+  let mut comment_map = comments.unwrap_or_default();
 
   // Build lookup: file path -> &FileDiff
   let file_map: HashMap<&str, &FileDiff> = diff.files.iter().map(|f| (f.display_path(), f)).collect();
 
   // Resolve chapters
-  let chapters = resolve_chapters(&storyline.chapters, &file_map, &mut referenced, &mut warnings);
+  let chapters = resolve_chapters(&storyline.chapters, &file_map, &mut referenced, &mut warnings, &mut comment_map);
 
   // Resolve misc chapters
-  let misc = resolve_chapters(&storyline.misc, &file_map, &mut referenced, &mut warnings);
+  let misc = resolve_chapters(&storyline.misc, &file_map, &mut referenced, &mut warnings, &mut comment_map);
 
   // Find uncategorized hunks
   let mut uncategorized = Vec::new();
@@ -59,11 +75,13 @@ pub fn resolve(storyline: &Storyline, diff: &ParsedDiff) -> ResolvedStory {
     for (idx, hunk) in file_diff.hunks.iter().enumerate() {
       let key = (path.to_string(), idx);
       if !referenced.contains(&key) {
+        let hunk_comments = comment_map.remove(&key).unwrap_or_default();
         uncategorized.push(UncategorizedHunk {
           file_path: path.to_string(),
           file_diff: file_diff.clone(),
           hunk: hunk.clone(),
           hunk_index: idx,
+          comments: hunk_comments,
         });
       }
     }
@@ -75,6 +93,8 @@ pub fn resolve(storyline: &Storyline, diff: &ParsedDiff) -> ResolvedStory {
     misc,
     uncategorized,
     warnings,
+    issue_comments,
+    outdated_comments,
   }
 }
 
@@ -83,6 +103,7 @@ fn resolve_chapters(
   file_map: &HashMap<&str, &FileDiff>,
   referenced: &mut HashSet<HunkKey>,
   warnings: &mut Vec<String>,
+  comment_map: &mut CommentMap,
 ) -> Vec<ResolvedChapter> {
   chapters
     .iter()
@@ -90,7 +111,7 @@ fn resolve_chapters(
       let hunks = ch
         .hunks
         .iter()
-        .filter_map(|href| resolve_hunk_ref(href, file_map, referenced, warnings))
+        .filter_map(|href| resolve_hunk_ref(href, file_map, referenced, warnings, comment_map))
         .collect();
       ResolvedChapter {
         title: ch.title.clone(),
@@ -106,6 +127,7 @@ fn resolve_hunk_ref(
   file_map: &HashMap<&str, &FileDiff>,
   referenced: &mut HashSet<HunkKey>,
   warnings: &mut Vec<String>,
+  comment_map: &mut CommentMap,
 ) -> Option<ResolvedHunk> {
   let key = (href.file.clone(), href.hunk_index);
 
@@ -129,13 +151,15 @@ fn resolve_hunk_ref(
         ));
         None
       } else {
-        referenced.insert(key);
+        referenced.insert(key.clone());
+        let hunk_comments = comment_map.remove(&key).unwrap_or_default();
         Some(ResolvedHunk {
           file_path: href.file.clone(),
           file_diff: (*file_diff).clone(),
           hunk: file_diff.hunks[href.hunk_index].clone(),
           hunk_index: href.hunk_index,
           note: href.note.clone(),
+          comments: hunk_comments,
         })
       }
     }

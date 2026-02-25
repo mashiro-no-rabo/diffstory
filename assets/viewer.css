@@ -26,6 +26,8 @@
   --badge-deleted: #cf222e;
   --badge-binary: #656d76;
   --inline-code-bg: #eff1f3;
+  --comment-bg: #f0f4f9;
+  --comment-border: #0969da;
 }
 
 html.dark {
@@ -52,6 +54,8 @@ html.dark {
   --badge-deleted: #f85149;
   --badge-binary: #8b949e;
   --inline-code-bg: #2a2f36;
+  --comment-bg: #1a2332;
+  --comment-border: #58a6ff;
 }
 
 body {
@@ -126,6 +130,12 @@ html.dark .icon-dark { display: inline; }
 /* Split toggle icons */
 .icon-split, html.split-view .icon-inline { display: none; }
 html.split-view .icon-split { display: inline; }
+
+/* Comments toggle icons */
+.icon-comments-off, html.show-comments .icon-comments-on { display: inline; }
+.icon-comments-on, html.show-comments .icon-comments-off { display: none; }
+html:not(.show-comments) .icon-comments-on { display: none; }
+html:not(.show-comments) .icon-comments-off { display: inline; }
 
 .toc {
   list-style: none;
@@ -364,8 +374,227 @@ html.split-view .content {
   user-select: none;
 }
 
+.diff-line-num {
+  width: 40px;
+  text-align: right;
+  color: var(--fg-muted);
+  user-select: none;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.diff-line-num:hover {
+  color: var(--comment-border);
+}
+
 .diff-line-add .diff-marker { color: var(--add-marker); }
 .diff-line-del .diff-marker { color: var(--del-marker); }
+
+/* Comment threads (inline in diff) */
+.comment-row {
+  background: var(--comment-bg);
+}
+
+.comment-row > td {
+  padding: 8px 12px !important;
+  white-space: normal !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+}
+
+.comment-thread {
+  border-left: 3px solid var(--comment-border);
+  padding-left: 12px;
+}
+
+.comment {
+  padding: 6px 0;
+}
+
+.comment + .comment {
+  border-top: 1px solid var(--border);
+}
+
+.comment-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.comment-author {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.comment-date {
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.comment-body {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.comment-body > :first-child { margin-top: 0; }
+.comment-body > :last-child { margin-bottom: 0; }
+
+.comment-body code {
+  font-size: 0.85em;
+}
+
+.outdated-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 12px;
+  background: var(--fg-muted);
+  color: var(--bg);
+}
+
+.comment-reply-link {
+  padding-top: 4px;
+}
+
+.comment-reply-link a {
+  color: var(--comment-border);
+  text-decoration: none;
+  font-size: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+}
+
+.comment-reply-link a:hover {
+  text-decoration: underline;
+}
+
+/* Comment visibility toggle */
+html:not(.show-comments) .comment-row,
+html:not(.show-comments) .issue-comments,
+html:not(.show-comments) .comment-form,
+html:not(.show-comments) #outdated-comments {
+  display: none;
+}
+
+/* Issue comments section */
+.issue-comments {
+  margin-bottom: 32px;
+  padding: 16px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.issue-comments h2 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.issue-comment {
+  padding: 12px 0;
+}
+
+.issue-comment + .issue-comment {
+  border-top: 1px solid var(--border);
+}
+
+/* Outdated comments */
+.outdated-file-group {
+  margin-bottom: 12px;
+}
+
+.outdated-file-header {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  padding: 4px 0;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Comment form (new comment creation) */
+.comment-form {
+  padding: 8px 12px;
+  background: var(--comment-bg);
+  border-top: 1px solid var(--border);
+}
+
+.comment-textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.comment-textarea:focus {
+  outline: none;
+  border-color: var(--comment-border);
+}
+
+.comment-form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.comment-btn {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.comment-btn-copy {
+  background: var(--comment-border);
+  color: #fff;
+  border-color: var(--comment-border);
+}
+
+.comment-btn-copy:hover {
+  opacity: 0.9;
+}
+
+.comment-btn-reset {
+  background: var(--bg);
+  color: var(--fg-muted);
+}
+
+.comment-btn-reset:hover {
+  background: var(--hover-bg);
+}
+
+.comment-btn-copied {
+  background: var(--add-marker) !important;
+  border-color: var(--add-marker) !important;
+}
+
+.comment-form-saved {
+  opacity: 0.5;
+  transition: opacity 0.3s;
+}
+
+/* Indicator on lines with saved drafts */
+tr.has-draft .diff-line-num {
+  color: var(--comment-border) !important;
+  font-weight: 600;
+}
+
+tr.has-draft .diff-line-num::after {
+  content: " \25CF";
+  font-size: 8px;
+}
 
 /* Split view */
 .diff-split {

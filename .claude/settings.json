@@ -4,7 +4,10 @@
       "WebSearch",
       "Bash(cargo build:*)",
       "Bash(cargo run:*)",
-      "Bash(cargo build 2>&1 && cargo test 2>&1)"
+      "Bash(cargo build 2>&1 && cargo test 2>&1)",
+      "Bash(cargo install --path .)",
+      "Bash(cargo --version)",
+      "Bash(gh --version)"
     ]
   }
 }

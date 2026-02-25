@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="show-comments">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,6 +9,7 @@
 </style>
 </head>
 <body>
+{{PR_META}}
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-header">diffstory</div>
   <div class="toolbar">
@@ -18,6 +19,8 @@
     <button class="toolbar-btn" id="split-toggle" title="Toggle split view">
       <span class="icon-inline">&#9776;</span><span class="icon-split">&#9783;</span>
     </button>
+    {{COMMENTS_TOGGLE}}
+    {{EXPORT_BTN}}
   </div>
   {{SIDEBAR_COVERAGE}}
   <ul class="toc" id="toc">
@@ -31,10 +34,21 @@
     {{COVERAGE}}
   </header>
   {{DESCRIPTION}}
+  {{ISSUE_COMMENTS}}
   {{CHAPTERS}}
   {{MISC}}
+  {{OUTDATED_COMMENTS}}
   {{UNCATEGORIZED}}
 </main>
+<template id="comment-form-tpl">
+  <div class="comment-form">
+    <textarea class="comment-textarea" placeholder="Write a comment..." rows="3"></textarea>
+    <div class="comment-form-actions">
+      <button class="comment-btn comment-btn-copy">Save to batch</button>
+      <button class="comment-btn comment-btn-reset">Cancel</button>
+    </div>
+  </div>
+</template>
 <script>
 {{JS}}
 </script>

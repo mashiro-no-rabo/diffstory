@@ -12,7 +12,7 @@ If the user provides a **GitHub PR URL** and wants to view (not generate) a diff
 diffstory view --open <PR_URL>
 ```
 
-This fetches the PR diff and embedded storyline, generates the HTML viewer, and opens it. Do NOT proceed with the generation steps below.
+This fetches the PR diff and embedded storyline, generates the HTML viewer, and opens it. Review comments and issue comments from the PR are automatically fetched and displayed inline. Do NOT proceed with the generation steps below.
 
 ---
 
@@ -151,3 +151,13 @@ Once validated and the user is happy with the HTML preview, ask the user if they
 - Keep chapter titles short (3-6 words).
 - **Avoid per-hunk notes.** A chapter's description should be sufficient to explain all its hunks. Only add a `note` to a hunk when it would be genuinely confusing without one (e.g. a non-obvious side effect, a subtle ordering dependency). Most chapters should have zero notes.
 - Order chapters to tell a story: setup before usage, core logic before edge cases.
+
+## PR Comments in the Viewer
+
+When viewing a PR URL, the HTML viewer automatically shows:
+- **Inline review comments** at the exact diff lines they reference, with threaded replies
+- **Issue comments** in a "Discussion" section above chapters
+- **Outdated comments** in a collapsible section for comments that no longer map to current lines
+- A **comments toggle** in the toolbar to show/hide all comments
+
+Users can click diff line numbers to draft new comments across the entire diff. The **Export** button (&#128230;) in the toolbar copies a batch shell script with all `gh api` commands to the clipboard — run it to post all comments at once. Individual comments also have a "Copy gh command" button for one-offs. Drafts are auto-saved to localStorage.

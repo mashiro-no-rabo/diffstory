@@ -5,6 +5,7 @@ use std::process::Command;
 use clap::{Parser, Subcommand};
 
 use diffstory::codec;
+use diffstory::comments;
 use diffstory::diff_parser;
 use diffstory::matcher;
 use diffstory::model::Storyline;
@@ -109,11 +110,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
           let encoded = diffstory::github::extract_storyline_from_body(&pr_info.body)?;
           let story = codec::decode(&encoded)?;
           let parsed_diff = diff_parser::parse_diff(&diff_text)?;
-          let resolved = matcher::resolve(&story, &parsed_diff);
+
+          // Fetch comments
+          let review_comments = diffstory::github::fetch_review_comments(&pr_info.repo, pr_info.number)
+            .unwrap_or_else(|e| {
+              eprintln!("warning: failed to fetch review comments: {e}");
+              Vec::new()
+            });
+          let issue_comments = diffstory::github::fetch_issue_comments(&pr_info.repo, pr_info.number)
+            .unwrap_or_else(|e| {
+              eprintln!("warning: failed to fetch issue comments: {e}");
+              Vec::new()
+            });
+
+          // Map review comments to hunks
+          let (comment_map, outdated) = comments::map_comments_to_hunks(review_comments, &parsed_diff);
+
+          let resolved = matcher::resolve_with_comments(
+            &story,
+            &parsed_diff,
+            Some(comment_map),
+            issue_comments,
+            outdated,
+          );
+
           diffstory::html::render(
             &resolved,
             title.as_deref().or(Some(&pr_info.title)),
             author.as_deref().or(Some(&pr_info.author)),
+            Some(&pr_info),
           )
         }
         None => {
@@ -125,7 +150,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
           let diff_text = read_input(&diff_path)?;
           let parsed_diff = diff_parser::parse_diff(&diff_text)?;
           let resolved = matcher::resolve(&story, &parsed_diff);
-          diffstory::html::render(&resolved, title.as_deref(), author.as_deref())
+          diffstory::html::render(&resolved, title.as_deref(), author.as_deref(), None)
         }
       };
 
