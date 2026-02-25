@@ -113,9 +113,7 @@ fn render_chapters(chapters: &[ResolvedChapter]) -> String {
     }
     html.push_str("</div>\n");
 
-    for resolved_hunk in &ch.hunks {
-      html.push_str(&render_resolved_hunk(resolved_hunk));
-    }
+    html.push_str(&render_hunks_grouped(&ch.hunks));
 
     html.push_str("</section>\n");
   }
@@ -123,17 +121,31 @@ fn render_chapters(chapters: &[ResolvedChapter]) -> String {
   html
 }
 
-fn render_resolved_hunk(rh: &ResolvedHunk) -> String {
+fn render_hunks_grouped(hunks: &[ResolvedHunk]) -> String {
   let mut html = String::new();
-  html.push_str("<div class=\"diff-file\">\n");
-  html.push_str(&render_file_header(&rh.file_diff, &rh.file_path));
+  let mut i = 0;
 
-  if let Some(note) = &rh.note {
-    html.push_str(&format!("<div class=\"hunk-note\">{}</div>\n", md_to_html(note)));
+  while i < hunks.len() {
+    let file_path = &hunks[i].file_path;
+    html.push_str("<div class=\"diff-file\">\n");
+    html.push_str(&render_file_header(&hunks[i].file_diff, file_path));
+
+    // Render all consecutive hunks from the same file
+    while i < hunks.len() && hunks[i].file_path == *file_path {
+      let rh = &hunks[i];
+      if let Some(note) = &rh.note {
+        html.push_str(&format!(
+          "<div class=\"hunk-note\">{}</div>\n",
+          md_to_html(note)
+        ));
+      }
+      html.push_str(&render_hunk_table(&rh.hunk));
+      i += 1;
+    }
+
+    html.push_str("</div>\n");
   }
 
-  html.push_str(&render_hunk_table(&rh.hunk));
-  html.push_str("</div>\n");
   html
 }
 
@@ -216,9 +228,7 @@ fn render_misc(misc: &[ResolvedChapter]) -> String {
     }
     html.push_str("</div>\n");
 
-    for resolved_hunk in &ch.hunks {
-      html.push_str(&render_resolved_hunk(resolved_hunk));
-    }
+    html.push_str(&render_hunks_grouped(&ch.hunks));
 
     html.push_str("</section>\n");
   }
@@ -238,10 +248,17 @@ fn render_uncategorized(uncategorized: &[UncategorizedHunk]) -> String {
   ));
   html.push_str("<div class=\"collapsible-body\">\n");
 
-  for uh in uncategorized {
+  let mut i = 0;
+  while i < uncategorized.len() {
+    let file_path = &uncategorized[i].file_path;
     html.push_str("<div class=\"diff-file\">\n");
-    html.push_str(&render_file_header(&uh.file_diff, &uh.file_path));
-    html.push_str(&render_hunk_table(&uh.hunk));
+    html.push_str(&render_file_header(&uncategorized[i].file_diff, file_path));
+
+    while i < uncategorized.len() && uncategorized[i].file_path == *file_path {
+      html.push_str(&render_hunk_table(&uncategorized[i].hunk));
+      i += 1;
+    }
+
     html.push_str("</div>\n");
   }
 

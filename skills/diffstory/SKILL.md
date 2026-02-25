@@ -1,7 +1,7 @@
 ---
 name: diffstory
 description: Generate a narrative storyline from the current branch's diff, or view an existing diffstory from a PR URL. Use when you want to create or view a guided code review story.
-allowed-tools: Bash, Read, Grep, Glob, Write
+allowed-tools: Bash, Read, Grep, Glob, Write, AskUserQuestion
 ---
 
 ## Viewing an existing diffstory
@@ -9,7 +9,7 @@ allowed-tools: Bash, Read, Grep, Glob, Write
 If the user provides a **GitHub PR URL** and wants to view (not generate) a diffstory, simply run:
 
 ```
-diffstory view <PR_URL>
+diffstory view --open <PR_URL>
 ```
 
 This fetches the PR diff and embedded storyline, generates the HTML viewer, and opens it. Do NOT proceed with the generation steps below.
@@ -71,13 +71,13 @@ Read the actual source files to understand what the changes do.
 
 ## Step 3: Open the HTML viewer
 
-Before building the storyline, offer to open the HTML viewer so the user can see changes live as you edit. Write an initial empty storyline JSON and open it:
+Before building the storyline, write an initial empty storyline JSON and generate the HTML:
 
 ```
-diffstory view --story <path> --diff <diff-path>
+diffstory view --open --story <path> --diff <diff-path>
 ```
 
-This opens `/tmp/diffstory.html` in the browser. Every time you update the storyline JSON and re-run `diffstory view`, the file is overwritten and the user can refresh the browser to see the latest version.
+The `--open` flag opens `/tmp/diffstory.html` in the browser. On subsequent updates, re-run without `--open` (the file is overwritten in place) and ask the user whether they want to **open in browser** (use `--open`) or just **refresh** their existing tab. Use AskUserQuestion for this.
 
 ## Step 4: Build the storyline interactively
 
@@ -91,7 +91,7 @@ For each chapter, draft:
 
 Also identify any hunks that belong in **misc** chapters (generated code, mass renames, formatting-only, etc.) — these use the same `{title, description, hunks}` structure as regular chapters but are displayed in a collapsible "Misc" section.
 
-After each round of edits, re-run `diffstory view --story <path> --diff <diff-path>` so the user can refresh the browser and see the updated story.
+After each round of edits, re-run `diffstory view --story <path> --diff <diff-path>` to regenerate the HTML, and ask the user if they want to open it in the browser or just refresh their existing tab.
 
 ## Step 5: Validate coverage
 

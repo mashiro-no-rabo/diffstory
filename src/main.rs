@@ -34,6 +34,9 @@ enum Commands {
     /// PR author for the viewer header
     #[arg(long)]
     author: Option<String>,
+    /// Open the generated HTML in the default browser
+    #[arg(long)]
+    open: bool,
   },
   /// Encode a storyline JSON to base64-compressed format
   Encode {
@@ -98,6 +101,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       diff,
       title,
       author,
+      open,
     } => {
       let html = match url {
         Some(pr_url) => {
@@ -127,8 +131,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
       let out_path = std::env::temp_dir().join("diffstory.html");
       fs::write(&out_path, &html)?;
-      eprintln!("Opening {}", out_path.display());
-      open_file(&out_path)?;
+      eprintln!("Wrote {}", out_path.display());
+      if open {
+        open_file(&out_path)?;
+      }
     }
     Commands::Encode { story: story_path, wrap } => {
       let story = load_storyline(&story_path)?;
