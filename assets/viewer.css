@@ -124,8 +124,8 @@ code {
 }
 
 /* Theme toggle icons */
-.icon-dark, html.dark .icon-light { display: none; }
-html.dark .icon-dark { display: inline; }
+.icon-light, html.dark .icon-dark { display: none; }
+html.dark .icon-light { display: inline; }
 
 /* Split toggle icons */
 .icon-split, html.split-view .icon-inline { display: none; }
