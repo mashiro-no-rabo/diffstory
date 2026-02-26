@@ -7,8 +7,7 @@ use crate::model::{HunkRef, Storyline};
 #[derive(Debug)]
 pub struct ResolvedStory {
   pub description: Option<String>,
-  pub chapters: Vec<ResolvedChapter>,
-  pub misc: Vec<ResolvedChapter>,
+  pub sections: Vec<ResolvedSection>,
   pub uncategorized: Vec<UncategorizedHunk>,
   pub warnings: Vec<String>,
   pub issue_comments: Vec<IssueComment>,
@@ -16,6 +15,13 @@ pub struct ResolvedStory {
   pub resolved_threads: Vec<GqlReviewThread>,
   pub bot_review_threads: Vec<GqlReviewThread>,
   pub bot_issue_comments: Vec<IssueComment>,
+}
+
+#[derive(Debug)]
+pub struct ResolvedSection {
+  pub title: String,
+  pub description: Option<String>,
+  pub chapters: Vec<ResolvedChapter>,
 }
 
 #[derive(Debug)]
@@ -68,11 +74,19 @@ pub fn resolve_with_comments(
   // Build lookup: file path -> &FileDiff
   let file_map: HashMap<&str, &FileDiff> = diff.files.iter().map(|f| (f.display_path(), f)).collect();
 
-  // Resolve chapters
-  let chapters = resolve_chapters(&storyline.chapters, &file_map, &mut referenced, &mut warnings, &mut comment_map);
-
-  // Resolve misc chapters
-  let misc = resolve_chapters(&storyline.misc, &file_map, &mut referenced, &mut warnings, &mut comment_map);
+  // Resolve each section's chapters
+  let sections: Vec<ResolvedSection> = storyline
+    .sections
+    .iter()
+    .map(|sec| {
+      let chapters = resolve_chapters(&sec.chapters, &file_map, &mut referenced, &mut warnings, &mut comment_map);
+      ResolvedSection {
+        title: sec.title.clone(),
+        description: sec.description.clone(),
+        chapters,
+      }
+    })
+    .collect();
 
   // Find uncategorized hunks
   let mut uncategorized = Vec::new();
@@ -95,8 +109,7 @@ pub fn resolve_with_comments(
 
   ResolvedStory {
     description: storyline.description.clone(),
-    chapters,
-    misc,
+    sections,
     uncategorized,
     warnings,
     issue_comments,

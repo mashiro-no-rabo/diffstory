@@ -4,9 +4,15 @@ use serde::{Deserialize, Serialize};
 pub struct Storyline {
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub description: Option<String>,
+  pub sections: Vec<Section>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Section {
+  pub title: String,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub description: Option<String>,
   pub chapters: Vec<Chapter>,
-  #[serde(default, skip_serializing_if = "Vec::is_empty")]
-  pub misc: Vec<Chapter>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

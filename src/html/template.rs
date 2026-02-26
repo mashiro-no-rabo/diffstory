@@ -3,7 +3,7 @@ use comrak::{markdown_to_html, Options};
 use crate::comments::{CommentThread, GqlReviewThread, IssueComment, OutdatedComment, ReviewComment};
 use crate::diff_parser::{DiffLine, FileDiff, Hunk};
 use crate::github::PrInfo;
-use crate::matcher::{ResolvedChapter, ResolvedHunk, ResolvedStory, UncategorizedHunk};
+use crate::matcher::{ResolvedChapter, ResolvedHunk, ResolvedSection, ResolvedStory, UncategorizedHunk};
 
 const TEMPLATE: &str = include_str!("../../assets/template.html");
 const CSS: &str = include_str!("../../assets/viewer.css");
@@ -23,9 +23,8 @@ pub fn render(story: &ResolvedStory, title: Option<&str>, author: Option<&str>, 
     None => String::new(),
   };
 
-  let toc = render_toc(&story.chapters, &story.misc, &story.uncategorized);
-  let chapters = render_chapters(&story.chapters);
-  let misc = render_misc(&story.misc);
+  let toc = render_toc(&story.sections, &story.uncategorized);
+  let sections = render_sections(&story.sections);
   let uncategorized = render_uncategorized(&story.uncategorized);
   let (coverage, sidebar_coverage) = render_coverage(story);
   let issue_comments = render_issue_comments(&story.issue_comments);
@@ -61,8 +60,7 @@ pub fn render(story: &ResolvedStory, title: Option<&str>, author: Option<&str>, 
     .replace("{{SIDEBAR_COVERAGE}}", &sidebar_coverage)
     .replace("{{DESCRIPTION}}", &description)
     .replace("{{ISSUE_COMMENTS}}", &issue_comments)
-    .replace("{{CHAPTERS}}", &chapters)
-    .replace("{{MISC}}", &misc)
+    .replace("{{SECTIONS}}", &sections)
     .replace("{{OUTDATED_COMMENTS}}", &outdated_comments)
     .replace("{{UNCATEGORIZED}}", &uncategorized)
     .replace("{{PR_META}}", &pr_meta)
@@ -91,9 +89,12 @@ fn render_pr_meta(pr_info: Option<&PrInfo>) -> String {
 }
 
 fn render_coverage(story: &ResolvedStory) -> (String, String) {
-  let chapter_hunks: usize = story.chapters.iter().map(|c| c.hunks.len()).sum();
-  let misc_hunks: usize = story.misc.iter().map(|c| c.hunks.len()).sum();
-  let covered = chapter_hunks + misc_hunks;
+  let covered: usize = story
+    .sections
+    .iter()
+    .flat_map(|s| s.chapters.iter())
+    .map(|c| c.hunks.len())
+    .sum();
   let total = covered + story.uncategorized.len();
 
   if total == 0 {
@@ -114,32 +115,26 @@ fn render_coverage(story: &ResolvedStory) -> (String, String) {
   (inner, sidebar)
 }
 
-fn render_toc(
-  chapters: &[ResolvedChapter],
-  misc: &[ResolvedChapter],
-  uncategorized: &[UncategorizedHunk],
-) -> String {
+fn render_toc(sections: &[ResolvedSection], uncategorized: &[UncategorizedHunk]) -> String {
   let mut html = String::new();
 
-  if !chapters.is_empty() {
-    html.push_str("<li class=\"toc-section\">Main Changes</li>\n");
-    for (i, ch) in chapters.iter().enumerate() {
+  for (si, sec) in sections.iter().enumerate() {
+    if sec.chapters.is_empty() {
+      continue;
+    }
+    html.push_str(&format!(
+      "<li class=\"toc-section\">{}</li>\n",
+      html_escape(&sec.title)
+    ));
+    for (ci, ch) in sec.chapters.iter().enumerate() {
+      let id = chapter_id(si, ci);
       html.push_str(&format!(
-        "<li><a href=\"#chapter-{i}\" data-chapter=\"{i}\">{}</a></li>\n",
+        "<li><a href=\"#{id}\" data-chapter=\"{id}\">{}</a></li>\n",
         html_escape(&ch.title)
       ));
     }
   }
 
-  if !misc.is_empty() {
-    html.push_str("<li class=\"toc-section\">Misc</li>\n");
-    for (i, ch) in misc.iter().enumerate() {
-      html.push_str(&format!(
-        "<li><a href=\"#misc-{i}\" data-chapter=\"misc-{i}\">{}</a></li>\n",
-        html_escape(&ch.title)
-      ));
-    }
-  }
   if !uncategorized.is_empty() {
     html.push_str("<li class=\"toc-section\">Other</li>\n");
     html.push_str("<li><a href=\"#uncategorized\">Uncategorized</a></li>\n");
@@ -148,28 +143,64 @@ fn render_toc(
   html
 }
 
-fn render_chapters(chapters: &[ResolvedChapter]) -> String {
+fn chapter_id(section_idx: usize, chapter_idx: usize) -> String {
+  format!("section-{section_idx}-chapter-{chapter_idx}")
+}
+
+fn section_id(section_idx: usize) -> String {
+  format!("section-{section_idx}")
+}
+
+fn render_sections(sections: &[ResolvedSection]) -> String {
   let mut html = String::new();
 
-  for (i, ch) in chapters.iter().enumerate() {
-    html.push_str("<section class=\"chapter\">\n");
+  for (si, sec) in sections.iter().enumerate() {
+    if sec.chapters.is_empty() {
+      continue;
+    }
+
+    let sec_id = section_id(si);
+    html.push_str(&format!("<div class=\"story-section\" id=\"{sec_id}\">\n"));
     html.push_str(&format!(
-      "<div class=\"chapter-header\" id=\"chapter-{i}\">\n<h2>{}</h2>\n",
-      html_escape(&ch.title)
+      "<div class=\"story-section-header\"><h2 class=\"story-section-title\">{}</h2>",
+      html_escape(&sec.title)
     ));
-    if let Some(desc) = &ch.description {
+    if let Some(desc) = &sec.description {
       html.push_str(&format!(
-        "<div class=\"chapter-description markdown-body\">{}</div>\n",
+        "<div class=\"story-section-description markdown-body\">{}</div>",
         md_to_html(desc)
       ));
     }
     html.push_str("</div>\n");
 
-    html.push_str(&render_hunks_grouped(&ch.hunks));
+    for (ci, ch) in sec.chapters.iter().enumerate() {
+      html.push_str(&render_chapter(ch, &chapter_id(si, ci)));
+    }
 
-    html.push_str("</section>\n");
+    html.push_str("</div>\n");
   }
 
+  html
+}
+
+fn render_chapter(ch: &ResolvedChapter, dom_id: &str) -> String {
+  let mut html = String::new();
+  html.push_str("<section class=\"chapter\">\n");
+  html.push_str(&format!(
+    "<div class=\"chapter-header\" id=\"{dom_id}\">\n<h3>{}</h3>\n",
+    html_escape(&ch.title)
+  ));
+  if let Some(desc) = &ch.description {
+    html.push_str(&format!(
+      "<div class=\"chapter-description markdown-body\">{}</div>\n",
+      md_to_html(desc)
+    ));
+  }
+  html.push_str("</div>\n");
+
+  html.push_str(&render_hunks_grouped(&ch.hunks));
+
+  html.push_str("</section>\n");
   html
 }
 
@@ -514,37 +545,6 @@ fn render_bot_section(review_threads: &[GqlReviewThread], issue_comments: &[Issu
   }
 
   html.push_str("</div>\n</div>\n");
-  html
-}
-
-fn render_misc(misc: &[ResolvedChapter]) -> String {
-  if misc.is_empty() {
-    return String::new();
-  }
-
-  let mut html = String::new();
-  html.push_str("<div id=\"misc-section\">\n");
-
-  for (i, ch) in misc.iter().enumerate() {
-    html.push_str("<section class=\"chapter\">\n");
-    html.push_str(&format!(
-      "<div class=\"chapter-header\" id=\"misc-{i}\">\n<h2>{}</h2>\n",
-      html_escape(&ch.title)
-    ));
-    if let Some(desc) = &ch.description {
-      html.push_str(&format!(
-        "<div class=\"chapter-description markdown-body\">{}</div>\n",
-        md_to_html(desc)
-      ));
-    }
-    html.push_str("</div>\n");
-
-    html.push_str(&render_hunks_grouped(&ch.hunks));
-
-    html.push_str("</section>\n");
-  }
-
-  html.push_str("</div>\n");
   html
 }
 

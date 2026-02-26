@@ -206,16 +206,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
           if result.uncategorized_hunks > 0 {
             println!("{} uncategorized hunks", result.uncategorized_hunks);
           }
-          println!("{} chapters", story.chapters.len());
-          println!("{} misc chapters", story.misc.len());
+          let chapter_count: usize = story.sections.iter().map(|s| s.chapters.len()).sum();
+          println!("{} sections, {} chapters", story.sections.len(), chapter_count);
         }
         None => {
           // Just validate JSON structure
           println!("Storyline is valid JSON");
-          println!("{} chapters", story.chapters.len());
-          let total_refs: usize = story.chapters.iter().map(|c| c.hunks.len()).sum();
+          let chapter_count: usize = story.sections.iter().map(|s| s.chapters.len()).sum();
+          let total_refs: usize = story
+            .sections
+            .iter()
+            .flat_map(|s| s.chapters.iter())
+            .map(|c| c.hunks.len())
+            .sum();
+          println!("{} sections, {chapter_count} chapters", story.sections.len());
           println!("{total_refs} hunk references");
-          println!("{} misc chapters", story.misc.len());
         }
       }
     }

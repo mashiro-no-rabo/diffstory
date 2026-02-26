@@ -175,10 +175,6 @@ html:not(.show-comments) .icon-comments-off { display: inline; }
   padding: 12px 16px 4px;
 }
 
-/* Misc chapter TOC links */
-.toc a[href^="#misc-"] {
-  color: var(--fg-muted);
-}
 
 /* Main content */
 .content {
@@ -278,7 +274,8 @@ html.split-view .content {
   scroll-margin-top: 16px;
 }
 
-.chapter-header h2 {
+.chapter-header h2,
+.chapter-header h3 {
   margin: 0 0 8px;
   font-size: 20px;
   font-weight: 600;
@@ -293,10 +290,32 @@ html.split-view .content {
 .chapter-description > :first-child { margin-top: 0; }
 .chapter-description > :last-child { margin-bottom: 0; }
 
-/* Misc section styling */
-#misc-section .chapter-header h2 {
-  color: var(--fg-muted);
+/* Story section header */
+.story-section {
+  margin-bottom: 32px;
 }
+
+.story-section-header {
+  margin: 40px 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.story-section-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.story-section-description {
+  color: var(--fg-muted);
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.story-section-description > :first-child { margin-top: 0; }
+.story-section-description > :last-child { margin-bottom: 0; }
 
 /* Diff file block */
 .diff-file {

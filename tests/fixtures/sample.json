@@ -1,40 +1,48 @@
 {
   "description": "This PR adds interactive greeting via `io::stdin()` and sets up the `lib.rs` library structure.",
-  "chapters": [
+  "sections": [
     {
-      "title": "Interactive Greeting",
-      "description": "Replace the static `println!` with an interactive prompt that reads the user's name from `stdin`.",
-      "hunks": [
+      "title": "Main",
+      "chapters": [
         {
-          "file": "src/main.rs",
-          "hunk_index": 0,
-          "note": "Added stdin import and changed the greeting to read user input."
+          "title": "Interactive Greeting",
+          "description": "Replace the static `println!` with an interactive prompt that reads the user's name from `stdin`.",
+          "hunks": [
+            {
+              "file": "src/main.rs",
+              "hunk_index": 0,
+              "note": "Added stdin import and changed the greeting to read user input."
+            }
+          ]
+        },
+        {
+          "title": "Library Setup",
+          "description": "Create `src/lib.rs` with a public `greet` module and a `version()` function.",
+          "hunks": [
+            {
+              "file": "src/lib.rs",
+              "hunk_index": 0
+            },
+            {
+              "file": "src/main.rs",
+              "hunk_index": 1,
+              "note": "Helper function scaffolding for future use."
+            }
+          ]
         }
       ]
     },
     {
-      "title": "Library Setup",
-      "description": "Create `src/lib.rs` with a public `greet` module and a `version()` function.",
-      "hunks": [
+      "title": "Misc",
+      "chapters": [
         {
-          "file": "src/lib.rs",
-          "hunk_index": 0
-        },
-        {
-          "file": "src/main.rs",
-          "hunk_index": 1,
-          "note": "Helper function scaffolding for future use."
-        }
-      ]
-    }
-  ],
-  "misc": [
-    {
-      "title": "Routine Updates",
-      "hunks": [
-        {
-          "file": "README.md",
-          "hunk_index": 0
+          "title": "Routine Updates",
+          "hunks": [
+            {
+              "file": "README.md",
+              "hunk_index": 0
+            }
+          ]
         }
       ]
     }
