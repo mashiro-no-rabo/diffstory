@@ -44,6 +44,15 @@ document.querySelectorAll('.collapsible-header').forEach(function(header) {
   });
 });
 
+// Fold/unfold individual diff-file blocks
+document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    var diffFile = btn.closest('.diff-file');
+    if (diffFile) diffFile.classList.toggle('folded');
+  });
+});
+
 // Keyboard navigation
 (function() {
   var sections = Array.from(document.querySelectorAll('.chapter-header'));

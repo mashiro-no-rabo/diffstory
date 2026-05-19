@@ -259,7 +259,10 @@ fn render_file_header(file_diff: &FileDiff, path: &str) -> String {
   };
 
   format!(
-    "<div class=\"diff-file-header\">{badges}<span>{}</span></div>\n",
+    "<div class=\"diff-file-header\">\
+      <button class=\"diff-fold-btn\" type=\"button\" title=\"Toggle fold\" aria-label=\"Toggle fold\"></button>\
+      {badges}<span>{}</span>\
+    </div>\n",
     html_escape(&display)
   )
 }
