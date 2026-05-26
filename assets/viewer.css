@@ -167,7 +167,7 @@ html:not(.show-comments) .icon-comments-off { display: inline; }
   font-weight: 600;
 }
 
-.toc .toc-section {
+.toc .toc-group {
   color: var(--fg-muted);
   font-size: 11px;
   text-transform: uppercase;
@@ -264,58 +264,58 @@ html.split-view .content {
 .story-description > :first-child { margin-top: 0; }
 .story-description > :last-child { margin-bottom: 0; }
 
-/* Chapter */
-.chapter {
+/* Section (subdivision within a group) */
+.story-section {
   margin-bottom: 40px;
 }
 
-.chapter-header {
+.story-section-header {
   margin-bottom: 16px;
   scroll-margin-top: 16px;
 }
 
-.chapter-header h2,
-.chapter-header h3 {
+.story-section-header h2,
+.story-section-header h3 {
   margin: 0 0 8px;
   font-size: 20px;
   font-weight: 600;
   color: var(--fg);
 }
 
-.chapter-description {
+.story-section-description {
   color: var(--fg-muted);
   margin-bottom: 16px;
 }
 
-.chapter-description > :first-child { margin-top: 0; }
-.chapter-description > :last-child { margin-bottom: 0; }
+.story-section-description > :first-child { margin-top: 0; }
+.story-section-description > :last-child { margin-bottom: 0; }
 
-/* Story section header */
-.story-section {
+/* Group (top-level container of sections) */
+.story-group {
   margin-bottom: 32px;
 }
 
-.story-section-header {
+.story-group-header {
   margin: 40px 0 16px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
 }
 
-.story-section-title {
+.story-group-title {
   margin: 0;
   font-size: 28px;
   font-weight: 700;
   color: var(--fg);
 }
 
-.story-section-description {
+.story-group-description {
   color: var(--fg-muted);
   margin-top: 8px;
   font-size: 14px;
 }
 
-.story-section-description > :first-child { margin-top: 0; }
-.story-section-description > :last-child { margin-bottom: 0; }
+.story-group-description > :first-child { margin-top: 0; }
+.story-group-description > :last-child { margin-bottom: 0; }
 
 /* Diff file block */
 .diff-file {

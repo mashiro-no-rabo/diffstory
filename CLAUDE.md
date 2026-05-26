@@ -1,6 +1,6 @@
 # Diffstory
 
-Rust CLI tool that organizes PR diff hunks into a narrative with chapters, then renders a standalone HTML viewer.
+Rust CLI tool that organizes PR diff hunks into a narrative with groups and sections, then renders a standalone HTML viewer.
 
 ## Build & Test
 
@@ -11,7 +11,7 @@ cargo test
 
 ## Architecture
 
-- `src/model.rs` — Data types: Storyline, Chapter, HunkRef
+- `src/model.rs` — Data types: Storyline, Group, Section, HunkRef
 - `src/diff_parser.rs` — Unified diff parser (git format)
 - `src/matcher.rs` — Resolves HunkRefs against parsed diffs, tracks coverage, distributes comments to hunks
 - `src/codec.rs` — JSON → gzip → base64 encode/decode, PR embedding format
@@ -22,7 +22,7 @@ cargo test
 
 ## Conventions
 
-- Storyline JSON uses `file` + `hunk_index` (0-based) to reference diff hunks; `misc` chapters use the same `{title, description, hunks}` structure as regular chapters
+- Storyline JSON: top-level `groups`, each containing `sections`, each section with `{title, description, hunks}` where hunks reference diff hunks by `file` + `hunk_index` (0-based)
 - PR embedding uses `<!--diffstory:BASE64-->` inside a `<details>` block
 - HTML viewer is fully self-contained (no external dependencies), with dark theme, split view, and comments toggles
 - Markdown in descriptions/notes rendered via comrak

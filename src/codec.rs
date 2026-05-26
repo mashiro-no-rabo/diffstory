@@ -57,16 +57,16 @@ pub fn extract_from_text(text: &str) -> Result<String, CodecError> {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::model::{Chapter, HunkRef, Section};
+  use crate::model::{Group, HunkRef, Section};
 
   fn sample_storyline() -> Storyline {
     Storyline {
       description: Some("Test story".to_string()),
-      sections: vec![Section {
+      groups: vec![Group {
         title: "Main".to_string(),
         description: None,
-        chapters: vec![Chapter {
-          title: "Chapter 1".to_string(),
+        sections: vec![Section {
+          title: "Section 1".to_string(),
           description: None,
           hunks: vec![HunkRef {
             file: "src/main.rs".to_string(),
@@ -83,9 +83,9 @@ mod tests {
     let story = sample_storyline();
     let encoded = encode(&story).unwrap();
     let decoded = decode(&encoded).unwrap();
-    assert_eq!(decoded.sections.len(), 1);
-    assert_eq!(decoded.sections[0].chapters.len(), 1);
-    assert_eq!(decoded.sections[0].chapters[0].title, "Chapter 1");
+    assert_eq!(decoded.groups.len(), 1);
+    assert_eq!(decoded.groups[0].sections.len(), 1);
+    assert_eq!(decoded.groups[0].sections[0].title, "Section 1");
   }
 
   #[test]

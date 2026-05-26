@@ -1,6 +1,6 @@
 # diffstory
 
-Turn PR diffs into guided narratives. Organize hunks into chapters with descriptions and notes, then view them as a standalone HTML story.
+Turn PR diffs into guided narratives. Organize hunks into groups and sections with descriptions and notes, then view them as a standalone HTML story.
 
 ## Install
 
@@ -40,34 +40,43 @@ diffstory validate --story story.json --diff changes.diff
 ```json
 {
   "description": "Overall reading guide (markdown)",
-  "chapters": [
+  "groups": [
     {
-      "title": "Chapter name",
-      "description": "What this chapter covers (markdown)",
-      "hunks": [
-        { "file": "src/main.rs", "hunk_index": 0, "note": "Inline annotation" }
+      "title": "Main",
+      "description": "Optional group-level note (markdown)",
+      "sections": [
+        {
+          "title": "Section name",
+          "description": "What this section covers (markdown)",
+          "hunks": [
+            { "file": "src/main.rs", "hunk_index": 0, "note": "Inline annotation" }
+          ]
+        }
       ]
-    }
-  ],
-  "misc": [
+    },
     {
-      "title": "Routine Updates",
-      "hunks": [
-        { "file": "README.md", "hunk_index": 0 }
+      "title": "Misc",
+      "sections": [
+        {
+          "title": "Routine Updates",
+          "hunks": [
+            { "file": "README.md", "hunk_index": 0 }
+          ]
+        }
       ]
     }
   ]
 }
 ```
 
-Hunks are referenced by file path and 0-based index within that file's diff. Every hunk should be assigned to a chapter or a misc chapter. Unassigned hunks appear in an "Uncategorized" section in the viewer.
+Hunks are referenced by file path and 0-based index within that file's diff. Every hunk should be assigned to a section. Unassigned hunks appear in an "Uncategorized" block in the viewer.
 
 ## PR Comments
 
 When viewing a GitHub PR, the viewer automatically fetches and displays:
 
 - **Review comments** — shown inline at the exact diff lines they reference, with threaded replies
-- **Issue comments** — shown in a "Discussion" section above the chapters
+- **Issue comments** — shown in a "Discussion" block above the story content
 - **Outdated comments** — review comments that no longer map to current diff lines, shown in a collapsible section
 
 The toolbar has a comments toggle button to show/hide all comments.

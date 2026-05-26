@@ -1,19 +1,19 @@
 // TOC highlight via scroll position
 (function() {
-  var chapters = Array.from(document.querySelectorAll('.chapter-header'));
-  var tocLinks = document.querySelectorAll('.toc a[data-chapter]');
+  var sections = Array.from(document.querySelectorAll('.story-section-header'));
+  var tocLinks = document.querySelectorAll('.toc a[data-section]');
 
-  if (chapters.length === 0) return;
+  if (sections.length === 0) return;
 
   function updateToc() {
     var scrollTop = window.scrollY || document.documentElement.scrollTop;
     var threshold = window.innerHeight * 0.15;
     var activeId = null;
 
-    // Find the last chapter header that has scrolled past the threshold
-    for (var i = chapters.length - 1; i >= 0; i--) {
-      if (chapters[i].getBoundingClientRect().top <= threshold) {
-        activeId = chapters[i].id;
+    // Find the last section header that has scrolled past the threshold
+    for (var i = sections.length - 1; i >= 0; i--) {
+      if (sections[i].getBoundingClientRect().top <= threshold) {
+        activeId = sections[i].id;
         break;
       }
     }
@@ -55,7 +55,7 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
 
 // Keyboard navigation
 (function() {
-  var sections = Array.from(document.querySelectorAll('.chapter-header'));
+  var sections = Array.from(document.querySelectorAll('.story-section-header'));
   var currentIdx = -1;
 
   document.addEventListener('keydown', function(e) {

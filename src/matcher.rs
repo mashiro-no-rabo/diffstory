@@ -7,7 +7,7 @@ use crate::model::{HunkRef, Storyline};
 #[derive(Debug)]
 pub struct ResolvedStory {
   pub description: Option<String>,
-  pub sections: Vec<ResolvedSection>,
+  pub groups: Vec<ResolvedGroup>,
   pub uncategorized: Vec<UncategorizedHunk>,
   pub warnings: Vec<String>,
   pub issue_comments: Vec<IssueComment>,
@@ -18,14 +18,14 @@ pub struct ResolvedStory {
 }
 
 #[derive(Debug)]
-pub struct ResolvedSection {
+pub struct ResolvedGroup {
   pub title: String,
   pub description: Option<String>,
-  pub chapters: Vec<ResolvedChapter>,
+  pub sections: Vec<ResolvedSection>,
 }
 
 #[derive(Debug)]
-pub struct ResolvedChapter {
+pub struct ResolvedSection {
   pub title: String,
   pub description: Option<String>,
   pub hunks: Vec<ResolvedHunk>,
@@ -74,16 +74,16 @@ pub fn resolve_with_comments(
   // Build lookup: file path -> &FileDiff
   let file_map: HashMap<&str, &FileDiff> = diff.files.iter().map(|f| (f.display_path(), f)).collect();
 
-  // Resolve each section's chapters
-  let sections: Vec<ResolvedSection> = storyline
-    .sections
+  // Resolve each group's sections
+  let groups: Vec<ResolvedGroup> = storyline
+    .groups
     .iter()
-    .map(|sec| {
-      let chapters = resolve_chapters(&sec.chapters, &file_map, &mut referenced, &mut warnings, &mut comment_map);
-      ResolvedSection {
-        title: sec.title.clone(),
-        description: sec.description.clone(),
-        chapters,
+    .map(|grp| {
+      let sections = resolve_sections(&grp.sections, &file_map, &mut referenced, &mut warnings, &mut comment_map);
+      ResolvedGroup {
+        title: grp.title.clone(),
+        description: grp.description.clone(),
+        sections,
       }
     })
     .collect();
@@ -109,7 +109,7 @@ pub fn resolve_with_comments(
 
   ResolvedStory {
     description: storyline.description.clone(),
-    sections,
+    groups,
     uncategorized,
     warnings,
     issue_comments,
@@ -120,24 +120,24 @@ pub fn resolve_with_comments(
   }
 }
 
-fn resolve_chapters(
-  chapters: &[crate::model::Chapter],
+fn resolve_sections(
+  sections: &[crate::model::Section],
   file_map: &HashMap<&str, &FileDiff>,
   referenced: &mut HashSet<HunkKey>,
   warnings: &mut Vec<String>,
   comment_map: &mut CommentMap,
-) -> Vec<ResolvedChapter> {
-  chapters
+) -> Vec<ResolvedSection> {
+  sections
     .iter()
-    .map(|ch| {
-      let hunks = ch
+    .map(|sec| {
+      let hunks = sec
         .hunks
         .iter()
         .filter_map(|href| resolve_hunk_ref(href, file_map, referenced, warnings, comment_map))
         .collect();
-      ResolvedChapter {
-        title: ch.title.clone(),
-        description: ch.description.clone(),
+      ResolvedSection {
+        title: sec.title.clone(),
+        description: sec.description.clone(),
         hunks,
       }
     })

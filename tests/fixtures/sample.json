@@ -1,9 +1,9 @@
 {
   "description": "This PR adds interactive greeting via `io::stdin()` and sets up the `lib.rs` library structure.",
-  "sections": [
+  "groups": [
     {
       "title": "Main",
-      "chapters": [
+      "sections": [
         {
           "title": "Interactive Greeting",
           "description": "Replace the static `println!` with an interactive prompt that reads the user's name from `stdin`.",
@@ -34,7 +34,7 @@
     },
     {
       "title": "Misc",
-      "chapters": [
+      "sections": [
         {
           "title": "Routine Updates",
           "hunks": [
