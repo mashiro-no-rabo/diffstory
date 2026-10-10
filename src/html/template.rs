@@ -234,6 +234,7 @@ fn render_hunks_grouped(hunks: &[ResolvedHunk]) -> String {
 
 fn render_file_header(file_diff: &FileDiff, path: &str) -> String {
   let mut badges = String::new();
+  let mut right_badges = String::new();
 
   if file_diff.is_rename {
     badges.push_str("<span class=\"badge badge-renamed\">renamed</span>");
@@ -242,7 +243,7 @@ fn render_file_header(file_diff: &FileDiff, path: &str) -> String {
     badges.push_str("<span class=\"badge badge-binary\">binary</span>");
   }
   if file_diff.old_path.is_none() {
-    badges.push_str("<span class=\"badge badge-new\">new</span>");
+    right_badges.push_str("<span class=\"badge badge-new\">new</span>");
   }
   if file_diff.new_path.is_none() {
     badges.push_str("<span class=\"badge badge-deleted\">deleted</span>");
@@ -259,10 +260,16 @@ fn render_file_header(file_diff: &FileDiff, path: &str) -> String {
   };
 
   format!(
-    "<div class=\"diff-file-header\">\
+    "<div class=\"diff-file-header\" data-file=\"{}\">\
       <button class=\"diff-fold-btn\" type=\"button\" title=\"Toggle fold\" aria-label=\"Toggle fold\"></button>\
-      {badges}<span>{}</span>\
+      <div class=\"diff-file-header-main\">{badges}<span>{}</span></div>\
+      <div class=\"diff-file-actions\">{right_badges}\
+        <label class=\"viewed-toggle\" title=\"Mark this file as viewed\">\
+          <input type=\"checkbox\" class=\"viewed-checkbox\">Viewed\
+        </label>\
+      </div>\
     </div>\n",
+    html_escape(path),
     html_escape(&display)
   )
 }

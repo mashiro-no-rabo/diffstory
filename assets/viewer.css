@@ -368,6 +368,50 @@ html.split-view .content {
   color: var(--fg);
 }
 
+.diff-file-header-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.diff-file-header-main span {
+  overflow-wrap: anywhere;
+}
+
+.diff-file-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.viewed-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--fg-muted);
+  user-select: none;
+}
+
+.viewed-toggle input {
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--add-marker);
+}
+
+/* "Viewed" state — subtle green tint on the header, muted path */
+.diff-file.viewed .diff-file-header {
+  background: var(--add-bg);
+}
+
+.diff-file.viewed .diff-file-header-main span {
+  color: var(--fg-muted);
+}
+
 .diff-file.folded > :not(.diff-file-header) {
   display: none;
 }

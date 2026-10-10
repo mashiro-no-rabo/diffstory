@@ -53,6 +53,43 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
   });
 });
 
+// "Viewed" checkbox — persisted per file, folds the diff while viewed,
+// synced across blocks of the same file
+(function() {
+  var PREFIX = 'diffstory-viewed-';
+
+  document.querySelectorAll('.diff-file-header[data-file]').forEach(function(header) {
+    var key = header.getAttribute('data-file');
+    var checkbox = header.querySelector('.viewed-checkbox');
+    var file = header.closest('.diff-file');
+    if (!key || !checkbox || !file) return;
+
+    var stored = localStorage.getItem(PREFIX + key) === 'true';
+    checkbox.checked = stored;
+    if (stored) {
+      file.classList.add('viewed', 'folded');
+    }
+
+    checkbox.addEventListener('change', function() {
+      file.classList.toggle('viewed', checkbox.checked);
+      file.classList.toggle('folded', checkbox.checked);
+      localStorage.setItem(PREFIX + key, checkbox.checked ? 'true' : 'false');
+
+      // Keep other blocks of the same file in sync
+      document.querySelectorAll('.diff-file-header[data-file="' + CSS.escape(key) + '"]').forEach(function(other) {
+        if (other === header) return;
+        var otherBox = other.querySelector('.viewed-checkbox');
+        if (otherBox) otherBox.checked = checkbox.checked;
+        var otherFile = other.closest('.diff-file');
+        if (otherFile) {
+          otherFile.classList.toggle('viewed', checkbox.checked);
+          otherFile.classList.toggle('folded', checkbox.checked);
+        }
+      });
+    });
+  });
+})();
+
 // Keyboard navigation
 (function() {
   var sections = Array.from(document.querySelectorAll('.story-section-header'));
