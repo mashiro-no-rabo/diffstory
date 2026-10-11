@@ -15,7 +15,9 @@ If unspecified, generate a unique session ID (e.g. using `mktemp -d /tmp/diffsto
 Diffstories for a PR should be put in a hidden block at the end of a PR description on GitHub:
 
 ```
-<details><summary>diffstory</summary><!--diffstory:...base64 encoded...--></details>
+<details><summary><a href="https://github.com/mashiro-no-rabo/diffstory">diffstory</a></summary>
+<!--diffstory:...base64 encoded...-->
+</details>
 ```
 
 **CRITICAL**: Never load the encoded base64 string into context — it's opaque data. Pipe everything through files:
