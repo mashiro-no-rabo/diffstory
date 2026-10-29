@@ -352,11 +352,9 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
   if (uncategorized) sections.push({ el: uncategorized, id: 'uncategorized', title: 'Uncategorized' });
 
   var selectedId = null;
-  var pending = null;
-  var editingId = null;
 
   pruneOldRenders();
-  var notes = load().filter(function(n) { return n && info(n) && typeof n.body === 'string'; });
+  var notes = load().filter(function(n) { return n && info(n) && typeof n.body === 'string' && n.body.trim(); });
 
   function pruneOldRenders() {
     try {
@@ -645,16 +643,37 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
       el.appendChild(details);
     }
 
-    var text = document.createElement('p');
+    var text = document.createElement('textarea');
     text.className = 'comment-text';
-    text.textContent = n.body;
+    text.rows = 1;
+    text.value = n.body;
+    text.placeholder = 'Enter to finish, Shift+Enter for a new line';
+    text.setAttribute('aria-label', 'Comment on ' + n.location);
+    text.addEventListener('input', function() {
+      n.body = text.value;
+      save();
+      grow(text);
+    });
+    text.addEventListener('keydown', function(e) {
+      if (e.key !== 'Enter' || e.shiftKey || e.metaKey || e.ctrlKey || e.isComposing) return;
+      e.preventDefault();
+      text.blur();
+    });
+    text.addEventListener('focus', function() {
+      selectedId = n.id;
+      document.querySelectorAll('.list-note').forEach(function(c) {
+        c.classList.toggle('selected', c === el);
+      });
+    });
+    text.addEventListener('blur', function() {
+      if (!n.body.trim()) remove(n, true);
+    });
     el.appendChild(text);
 
     el.appendChild(makeButton('Jump to section →', 'jump-link', function() { jump(n); }));
 
     var tools = document.createElement('div');
     tools.className = 'comment-tools';
-    tools.appendChild(makeButton('Edit', '', function() { edit(n); }));
     tools.appendChild(makeButton('Delete', '', function() { remove(n); }));
     el.appendChild(tools);
     return el;
@@ -685,81 +704,48 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
       p.textContent = 'No comments yet. Select story text or code, then start typing.';
       list.appendChild(p);
     }
+    list.querySelectorAll('textarea').forEach(grow);
+  }
+
+  // Hidden textareas report no scrollHeight, so this reruns when the drawer opens
+  function grow(ta) {
+    if (!ta.scrollHeight) return;
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
   }
 
   // --- Editing ---
 
-  function openEditor(n, value, isEdit) {
+  function remove(n, quiet) {
+    notes = notes.filter(function(x) { return x.id !== n.id; });
+    save();
+    render();
+    if (!quiet) toast('Comment deleted');
+  }
+
+  function add(n, firstKey) {
+    n.id = 'note-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    n.body = firstKey;
+    notes.push(n);
+    save();
+    selectedId = n.id;
     drawer(true);
-    $('editor-heading').textContent = isEdit ? 'Edit comment' : 'New comment';
-    $('editor-location').textContent = n.location;
-    $('editor-quote').textContent = n.quote || '';
-    $('editor-quote').hidden = !n.quote;
-    $('comment-body').value = value;
-    $('comment-editor').hidden = false;
-    var ta = $('comment-body');
+    render();
+    var ta = drawerEl.querySelector('[data-note-id="' + n.id + '"] textarea');
     ta.focus();
     ta.setSelectionRange(ta.value.length, ta.value.length);
   }
 
-  function closeEditor() {
-    $('comment-editor').hidden = true;
-    editingId = null;
-    pending = null;
-  }
-
-  function edit(n) {
-    editingId = n.id;
-    pending = n;
-    openEditor(n, n.body, true);
-  }
-
-  function remove(n) {
-    notes = notes.filter(function(x) { return x.id !== n.id; });
-    save();
-    render();
-    toast('Comment deleted');
-  }
-
-  function saveEditor() {
-    var body = $('comment-body').value.trim();
-    if (!body) return false;
-    if (editingId) {
-      var existing = notes.find(function(n) { return n.id === editingId; });
-      if (existing) existing.body = body;
-    } else {
-      var n = Object.assign({}, pending, { id: 'note-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8), body: body });
-      notes.push(n);
-      selectedId = n.id;
-    }
-    save();
-    closeEditor();
-    render();
-    var sel = window.getSelection();
-    if (sel) sel.removeAllRanges();
-    toast('Comment saved');
-    return true;
-  }
-
-  $('comment-editor').addEventListener('submit', function(e) {
-    e.preventDefault();
-    saveEditor();
-  });
-
-  $('cancel-comment').addEventListener('click', closeEditor);
-
-  $('comment-body').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      saveEditor();
-    }
-  });
-
   // Capture phase so the j/k section navigation doesn't swallow the first keystroke
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
-      if (!$('comment-editor').hidden) closeEditor();
+      if (e.target.closest && e.target.closest('.list-note textarea')) e.target.blur();
       else drawer(false);
+      return;
+    }
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      copyPrompt();
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.key.length !== 1) return;
@@ -767,9 +753,7 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
     var n = capture();
     if (!n) return;
     e.preventDefault();
-    pending = n;
-    editingId = null;
-    openEditor(n, e.key, false);
+    add(n, e.key);
   }, true);
 
   // --- Drawer, outline, layout switch ---
@@ -778,6 +762,7 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
     root.classList.toggle('drawer-open', open);
     drawerEl.hidden = !open;
     $('comments-toggle').setAttribute('aria-expanded', String(open));
+    if (open) drawerEl.querySelectorAll('.list-note textarea').forEach(grow);
   }
 
   $('comments-toggle').addEventListener('click', function() { drawer(!root.classList.contains('drawer-open')); });
@@ -801,7 +786,7 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
       (prUrl ? ' (' + prUrl + ')' : '') + '.\n' +
       'Address each comment below. Line numbers refer to the new version of the file unless marked (old).\n';
 
-    var parts = notes.map(function(n, i) {
+    var parts = notes.filter(function(n) { return n.body.trim(); }).map(function(n, i) {
       var out = '## ' + (i + 1) + '. ' + n.location + '\n';
       var sec = info(n);
       if (sec) out += 'Story section: ' + sec.title + '\n';
@@ -838,8 +823,8 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
     return ok ? Promise.resolve() : Promise.reject(new Error('copy failed'));
   }
 
-  $('copy-comments').addEventListener('click', function() {
-    if (!notes.length) {
+  function copyPrompt() {
+    if (!notes.some(function(n) { return n.body.trim(); })) {
       toast('No comments to copy');
       return;
     }
@@ -851,7 +836,10 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
     }, function() {
       toast('Copy failed');
     });
-  });
+  }
+
+  $('copy-comments').addEventListener('click', copyPrompt);
+  $('copy-comments').title = (/Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl') + '+Enter';
 
   $('clear-comments').addEventListener('click', function() {
     if (!notes.length || !confirm('Delete all ' + notes.length + ' comments?')) return;

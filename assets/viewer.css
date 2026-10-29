@@ -700,9 +700,27 @@ html.split-view .diff-split { display: table; }
 }
 
 .comment-text {
+  display: block;
+  width: 100%;
   margin: 8px 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  overflow: hidden;
+  resize: none;
+}
+
+.comment-text:hover {
+  border-color: var(--border);
+}
+
+.comment-text:focus {
+  border-color: var(--source-outline);
+  background: var(--bg);
+  outline: none;
 }
 
 .comment-tools {
@@ -819,58 +837,6 @@ html.split-view .diff-split { display: table; }
   background: var(--link-active-bg);
   color: var(--accent);
   border-color: var(--source-outline);
-}
-
-/* Composer */
-.comment-composer {
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-subtle);
-}
-
-.comment-composer h3 {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.comment-composer p {
-  margin: 4px 0 8px;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 10px;
-  color: var(--accent);
-  overflow-wrap: anywhere;
-}
-
-.comment-composer pre {
-  max-height: 120px;
-  overflow: auto;
-  margin: 0 0 8px;
-  padding: 8px;
-  background: var(--bg);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: 10px;
-}
-
-.comment-composer textarea {
-  display: block;
-  width: 100%;
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  background: var(--bg);
-  color: var(--fg);
-  font: inherit;
-  font-size: 13px;
-  resize: vertical;
-}
-
-.editor-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 10px;
 }
 
 #toast {
