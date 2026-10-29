@@ -3,7 +3,6 @@ use std::process::Command;
 use thiserror::Error;
 
 use crate::codec;
-use crate::comments::{CommentUser, GqlReviewThread, IssueComment, ReviewComment};
 
 #[derive(Debug, Error)]
 pub enum GithubError {
@@ -29,8 +28,6 @@ pub struct PrInfo {
     pub repo: String,
     /// PR number
     pub number: u64,
-    /// HEAD commit SHA (for creating review comments)
-    pub head_sha: String,
 }
 
 fn run_gh(args: &[&str]) -> Result<String, GithubError> {
@@ -83,7 +80,7 @@ pub fn fetch_pr(url: &str) -> Result<(PrInfo, String), GithubError> {
     // Fetch PR metadata as JSON
     let json_str = run_gh(&[
         "pr", "view", url,
-        "--json", "title,author,body,headRefOid",
+        "--json", "title,author,body",
     ])?;
 
     let json: serde_json::Value = serde_json::from_str(&json_str)?;
@@ -93,7 +90,6 @@ pub fn fetch_pr(url: &str) -> Result<(PrInfo, String), GithubError> {
         .unwrap_or(json["author"]["name"].as_str().unwrap_or("unknown"))
         .to_string();
     let body = json["body"].as_str().unwrap_or("").to_string();
-    let head_sha = json["headRefOid"].as_str().unwrap_or("").to_string();
 
     // Fetch diff
     let diff = run_gh(&["pr", "diff", url])?;
@@ -105,157 +101,9 @@ pub fn fetch_pr(url: &str) -> Result<(PrInfo, String), GithubError> {
             body,
             repo,
             number,
-            head_sha,
         },
         diff,
     ))
-}
-
-/// Fetch review threads via GraphQL, preserving resolved state and author type.
-pub fn fetch_review_threads(repo: &str, number: u64) -> Result<Vec<GqlReviewThread>, GithubError> {
-    let query = format!(
-        r#"query {{
-  repository(owner: "{owner}", name: "{name}") {{
-    pullRequest(number: {number}) {{
-      reviewThreads(first: 100) {{
-        nodes {{
-          isResolved
-          path
-          line
-          originalLine
-          diffSide
-          comments(first: 100) {{
-            nodes {{
-              databaseId
-              body
-              author {{
-                login
-                __typename
-              }}
-              createdAt
-            }}
-          }}
-        }}
-      }}
-    }}
-  }}
-}}"#,
-        owner = repo.split('/').next().unwrap_or(""),
-        name = repo.split('/').nth(1).unwrap_or(""),
-        number = number,
-    );
-
-    let json_str = run_gh(&["api", "graphql", "-f", &format!("query={query}")])?;
-    let json: serde_json::Value = serde_json::from_str(&json_str)?;
-
-    let threads = json["data"]["repository"]["pullRequest"]["reviewThreads"]["nodes"]
-        .as_array()
-        .cloned()
-        .unwrap_or_default();
-
-    let mut result = Vec::new();
-    for thread in threads {
-        let is_resolved = thread["isResolved"].as_bool().unwrap_or(false);
-        let path = thread["path"].as_str().unwrap_or("").to_string();
-        let line = thread["line"].as_u64().map(|n| n as u32);
-        let original_line = thread["originalLine"].as_u64().map(|n| n as u32);
-        let diff_side = thread["diffSide"].as_str().map(|s| s.to_string());
-
-        let comment_nodes = thread["comments"]["nodes"]
-            .as_array()
-            .cloned()
-            .unwrap_or_default();
-
-        let mut comments = Vec::new();
-        let mut first_id: Option<u64> = None;
-        for (i, node) in comment_nodes.iter().enumerate() {
-            let id = node["databaseId"].as_u64().unwrap_or(0);
-            if i == 0 {
-                first_id = Some(id);
-            }
-            let login = node["author"]["login"]
-                .as_str()
-                .unwrap_or("ghost")
-                .to_string();
-            let user_type = node["author"]["__typename"]
-                .as_str()
-                .map(|s| s.to_string());
-            let body = node["body"].as_str().unwrap_or("").to_string();
-            let created_at = node["createdAt"].as_str().unwrap_or("").to_string();
-
-            comments.push(ReviewComment {
-                id,
-                path: path.clone(),
-                line,
-                original_line,
-                side: diff_side.clone(),
-                body,
-                user: CommentUser { login, user_type },
-                created_at,
-                in_reply_to_id: if i > 0 { first_id } else { None },
-            });
-        }
-
-        result.push(GqlReviewThread {
-            is_resolved,
-            path,
-            line,
-            original_line,
-            comments,
-        });
-    }
-
-    Ok(result)
-}
-
-/// Fetch issue comments (general PR-level) for a PR.
-pub fn fetch_issue_comments(repo: &str, number: u64) -> Result<Vec<IssueComment>, GithubError> {
-    let endpoint = format!("repos/{repo}/issues/{number}/comments");
-    let json_str = run_gh(&["api", "--paginate", &endpoint])?;
-
-    let comments: Vec<IssueComment> = parse_paginated_json(&json_str)?;
-    Ok(comments)
-}
-
-/// Parse paginated JSON from gh api. When paginating, gh concatenates JSON arrays
-/// like `[...][...]`, so we need to handle that.
-fn parse_paginated_json<T: serde::de::DeserializeOwned>(json_str: &str) -> Result<Vec<T>, GithubError> {
-    let trimmed = json_str.trim();
-    if trimmed.is_empty() || trimmed == "[]" {
-        return Ok(Vec::new());
-    }
-
-    // Try parsing as a single array first
-    if let Ok(items) = serde_json::from_str::<Vec<T>>(trimmed) {
-        return Ok(items);
-    }
-
-    // Handle concatenated arrays: ][
-    let mut all_items = Vec::new();
-    let mut depth = 0i32;
-    let mut start = 0;
-
-    for (i, ch) in trimmed.char_indices() {
-        match ch {
-            '[' => {
-                if depth == 0 {
-                    start = i;
-                }
-                depth += 1;
-            }
-            ']' => {
-                depth -= 1;
-                if depth == 0 {
-                    let chunk = &trimmed[start..=i];
-                    let items: Vec<T> = serde_json::from_str(chunk)?;
-                    all_items.extend(items);
-                }
-            }
-            _ => {}
-        }
-    }
-
-    Ok(all_items)
 }
 
 /// Extract encoded storyline data from PR body.
@@ -283,20 +131,5 @@ mod tests {
         assert!(parse_pr_url("https://gitlab.com/owner/repo/pull/123").is_err());
         assert!(parse_pr_url("https://github.com/owner/repo/issues/123").is_err());
         assert!(parse_pr_url("not-a-url").is_err());
-    }
-
-    #[test]
-    fn test_parse_paginated_json() {
-        // Single array
-        let result: Vec<serde_json::Value> = parse_paginated_json("[1,2,3]").unwrap();
-        assert_eq!(result.len(), 3);
-
-        // Concatenated arrays
-        let result: Vec<serde_json::Value> = parse_paginated_json("[1,2][3,4]").unwrap();
-        assert_eq!(result.len(), 4);
-
-        // Empty
-        let result: Vec<serde_json::Value> = parse_paginated_json("").unwrap();
-        assert!(result.is_empty());
     }
 }

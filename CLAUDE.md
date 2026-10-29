@@ -13,21 +13,20 @@ cargo test
 
 - `src/model.rs` — Data types: Storyline, Group, Section, HunkRef
 - `src/diff_parser.rs` — Unified diff parser (git format)
-- `src/matcher.rs` — Resolves HunkRefs against parsed diffs, tracks coverage, distributes comments to hunks
+- `src/matcher.rs` — Resolves HunkRefs against parsed diffs, tracks coverage
 - `src/codec.rs` — JSON → gzip → base64 encode/decode, PR embedding format
-- `src/comments.rs` — GitHub PR comment types, line-to-hunk mapping, threading
 - `src/html/` — Standalone HTML generation with inlined CSS/JS from `assets/`
-- `src/github.rs` — GitHub PR fetching via `gh` CLI (metadata, diff, review comments, issue comments)
+- `src/github.rs` — GitHub PR fetching via `gh` CLI (metadata, diff)
 - `src/main.rs` — clap CLI with subcommands: view, encode, decode, validate
 
 ## Conventions
 
 - Storyline JSON: top-level `groups`, each containing `sections`, each section with `{title, description, hunks}` where hunks reference diff hunks by `file` + `hunk_index` (0-based)
 - PR embedding uses `<!--diffstory:BASE64-->` inside a `<details>` block
-- HTML viewer is fully self-contained (no external dependencies), with dark theme, split view, and comments toggles
+- HTML viewer is fully self-contained (no external dependencies), with dark theme and split view toggles
 - Markdown in descriptions/notes rendered via comrak
 - GitHub integration uses `gh` CLI (no API token management needed)
-- PR comments (review + issue) are fetched and displayed inline when viewing a PR URL; click diff line numbers to create new comments via exported `gh api` commands
+- Review comments: select text (prose or diff) and type to open the comment editor; comments show beside their section and in the Comments drawer, whose "Copy prompt" exports them as an agent prompt and clears them
 
 ## Test Fixtures
 

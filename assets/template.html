@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" {{HTML_CLASS}}>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,55 +9,70 @@
 </style>
 </head>
 <body>
-{{PR_META}}
-<nav class="sidebar" id="sidebar">
-  <div class="sidebar-header">diffstory</div>
-  <div class="toolbar">
-    <button class="toolbar-btn" id="theme-toggle" title="Toggle theme">
-      <span class="icon-light">&#9789;</span><span class="icon-dark">&#9788;</span>
-    </button>
-    <button class="toolbar-btn" id="split-toggle" title="Toggle split view">
-      <span class="icon-inline">&#9776;</span><span class="icon-split">&#9783;</span>
-    </button>
-    {{COMMENTS_TOGGLE}}
-    {{EXPORT_BTN}}
+<header class="appbar">
+  <a class="wordmark" href="#top">Diffstory</a>
+  {{PROGRESS}}
+  <div class="top-actions">
+    <div class="view-switch" role="group" aria-label="Diff layout">
+      <button type="button" id="inline-mode" aria-pressed="true">Inline</button>
+      <button type="button" id="split-mode" aria-pressed="false">Split</button>
+    </div>
+    <button type="button" id="theme-toggle" class="quiet" aria-label="Toggle color theme">Theme</button>
+    <button type="button" id="comments-toggle" aria-expanded="false" aria-controls="comments-drawer">Comments <span class="count" id="comment-count">0</span></button>
+    <button type="button" id="outline-toggle" class="mobile-outline" aria-expanded="false" aria-controls="sidebar">Outline</button>
   </div>
-  {{SIDEBAR_COVERAGE}}
+</header>
+<nav class="sidebar" id="sidebar" aria-label="Story outline">
+  <div class="outline-label">STORY OUTLINE</div>
   <ul class="toc" id="toc">
     {{TOC}}
   </ul>
+  <div class="sidebar-footer">Select text, then type to comment<br><kbd>j</kbd> <kbd>k</kbd> Navigate sections</div>
 </nav>
+<div id="top"></div>
 <main class="content">
-  <header class="page-header">
-    <h1>{{HEADER_TITLE}}</h1>
-    {{HEADER_AUTHOR}}
-    {{COVERAGE}}
-  </header>
-  {{DESCRIPTION}}
+  <section class="story-intro" id="overview">
+    <header class="page-header">
+      <h1>{{HEADER_TITLE}}</h1>
+      {{HEADER_AUTHOR}}
+    </header>
+    {{DESCRIPTION}}
+  </section>
   {{GROUPS}}
-  {{OUTDATED_COMMENTS}}
   {{UNCATEGORIZED}}
 </main>
-<aside class="right-panel" id="right-panel">
-  <div class="right-panel-header">
-    <span class="right-panel-title">Other Comments</span>
+<aside id="comments-drawer" class="comments-drawer" aria-label="All comments" data-pr-url="{{PR_URL}}" data-render-id="{{RENDER_ID}}" hidden>
+  <header class="drawer-header">
+    <h2>Comments <span class="count" id="drawer-count">0</span></h2>
+    <button type="button" class="quiet" id="close-comments" aria-label="Close comments">Close</button>
+  </header>
+  <div class="drawer-filter">
+    <label for="comment-filter">Show</label>
+    <select id="comment-filter">
+      <option value="all">All sections</option>
+      <option value="current">Current section</option>
+    </select>
   </div>
-  <div class="right-panel-body">
-    {{ISSUE_COMMENTS}}
-    {{RESOLVED_COMMENTS}}
-    {{BOT_COMMENTS}}
-    <div id="draft-area"></div>
-  </div>
+  <div id="all-comments" class="all-comments"></div>
+  <footer class="drawer-footer">
+    <button type="button" id="clear-comments" class="quiet">Clear</button>
+    <button type="button" id="copy-comments" class="primary">Copy prompt</button>
+  </footer>
 </aside>
-<template id="comment-form-tpl">
-  <div class="comment-form">
-    <textarea class="comment-textarea" placeholder="Write a comment..." rows="3"></textarea>
-    <div class="comment-form-actions">
-      <button class="comment-btn comment-btn-copy">Save to batch</button>
-      <button class="comment-btn comment-btn-reset">Cancel</button>
+<div id="toast" role="status" aria-live="polite"></div>
+<dialog id="comment-editor">
+  <form method="dialog">
+    <h2 id="editor-heading">Add comment</h2>
+    <p id="editor-location"></p>
+    <pre id="editor-quote"></pre>
+    <label for="comment-body">Your comment</label>
+    <textarea id="comment-body" required placeholder="What would you like to change?" rows="4"></textarea>
+    <div class="editor-actions">
+      <button value="cancel" formnovalidate>Cancel</button>
+      <button id="save-comment" value="save" class="primary">Save comment</button>
     </div>
-  </div>
-</template>
+  </form>
+</dialog>
 <script>
 {{JS}}
 </script>

@@ -96,6 +96,7 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
   var currentIdx = -1;
 
   document.addEventListener('keydown', function(e) {
+    if (e.defaultPrevented) return;
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
     if (e.key === 'j' || e.key === 'k') {
@@ -129,27 +130,23 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
   });
 })();
 
-// Split view toggle + generation
+// Inline/split layout switch + split table generation
 (function() {
-  var btn = document.getElementById('split-toggle');
-  if (!btn) return;
+  var inlineBtn = document.getElementById('inline-mode');
+  var splitBtn = document.getElementById('split-mode');
+  if (!inlineBtn || !splitBtn) return;
 
-  var saved = localStorage.getItem('diffstory-split');
-  if (saved === 'true') {
-    document.documentElement.classList.add('split-view');
+  function setSplit(split) {
+    document.documentElement.classList.toggle('split-view', split);
+    inlineBtn.setAttribute('aria-pressed', String(!split));
+    splitBtn.setAttribute('aria-pressed', String(split));
+    localStorage.setItem('diffstory-split', split ? 'true' : 'false');
+    if (split) generateSplitTables();
   }
 
-  btn.addEventListener('click', function() {
-    var html = document.documentElement;
-    html.classList.toggle('split-view');
-    localStorage.setItem('diffstory-split', html.classList.contains('split-view') ? 'true' : 'false');
-    generateSplitTables();
-  });
-
-  // Generate split tables on load if split view is active
-  if (document.documentElement.classList.contains('split-view')) {
-    generateSplitTables();
-  }
+  inlineBtn.addEventListener('click', function() { setSplit(false); });
+  splitBtn.addEventListener('click', function() { setSplit(true); });
+  setSplit(localStorage.getItem('diffstory-split') === 'true');
 
   function generateSplitTables() {
     // Only generate once
@@ -162,6 +159,7 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
 
       var split = document.createElement('table');
       split.className = 'diff-split';
+      split.setAttribute('data-file', table.getAttribute('data-file') || '');
       split.innerHTML = '<colgroup>' +
         '<col class="split-marker"><col class="split-code">' +
         '<col class="split-divider">' +
@@ -171,17 +169,26 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
       var rows = table.querySelectorAll('tr');
       var lines = [];
       rows.forEach(function(row) {
+        var type = null;
         if (row.classList.contains('diff-hunk-header')) {
           lines.push({ type: 'header', text: row.querySelector('td').textContent });
+          return;
         } else if (row.classList.contains('diff-line-add')) {
-          lines.push({ type: 'add', text: row.querySelector('.diff-code').textContent });
+          type = 'add';
         } else if (row.classList.contains('diff-line-del')) {
-          lines.push({ type: 'del', text: row.querySelector('.diff-code').textContent });
+          type = 'del';
         } else if (row.classList.contains('diff-line-ctx')) {
-          lines.push({ type: 'ctx', text: row.querySelector('.diff-code').textContent });
+          type = 'ctx';
         } else if (row.classList.contains('diff-line-noeof')) {
-          lines.push({ type: 'noeof', text: row.querySelector('.diff-code').textContent });
+          type = 'noeof';
         }
+        if (!type) return;
+        lines.push({
+          type: type,
+          text: row.querySelector('.diff-code').textContent,
+          old: row.getAttribute('data-old-line'),
+          nw: row.getAttribute('data-new-line')
+        });
       });
 
       // For new files: show everything on the right only
@@ -198,6 +205,7 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
               '<td class="split-divider"></td>' +
               '<td class="diff-marker split-add">+</td>' +
               '<td class="diff-code split-add">' + esc(line.text) + '</td>';
+            tagLines(tr, null, line.nw);
           }
           split.appendChild(tr);
         });
@@ -219,6 +227,7 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
               '<td class="split-divider"></td>' +
               '<td class="diff-marker split-empty"></td>' +
               '<td class="diff-code split-empty"></td>';
+            tagLines(tr, line.old, null);
           }
           split.appendChild(tr);
         });
@@ -235,17 +244,17 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
           paired.push({ type: 'header', text: line.text });
           i++;
         } else if (line.type === 'ctx' || line.type === 'noeof') {
-          paired.push({ type: line.type, text: line.text });
+          paired.push({ type: line.type, text: line.text, old: line.old, nw: line.nw });
           i++;
         } else if (line.type === 'del') {
           var dels = [];
           while (i < lines.length && lines[i].type === 'del') {
-            dels.push(lines[i].text);
+            dels.push(lines[i]);
             i++;
           }
           var adds = [];
           while (i < lines.length && lines[i].type === 'add') {
-            adds.push(lines[i].text);
+            adds.push(lines[i]);
             i++;
           }
           var max = Math.max(dels.length, adds.length);
@@ -257,7 +266,7 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
             });
           }
         } else if (line.type === 'add') {
-          paired.push({ type: 'pair', left: null, right: line.text });
+          paired.push({ type: 'pair', left: null, right: line });
           i++;
         }
       }
@@ -274,6 +283,7 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
             '<td class="split-divider"></td>' +
             '<td class="diff-marker split-ctx"> </td>' +
             '<td class="diff-code split-ctx">' + esc(p.text) + '</td>';
+          tagLines(tr, p.old, p.nw);
         } else if (p.type === 'noeof') {
           tr.innerHTML =
             '<td class="diff-marker split-empty"></td>' +
@@ -286,20 +296,27 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
           var rCls = p.right !== null ? 'split-add' : 'split-empty';
           var lMark = p.left !== null ? '-' : '';
           var rMark = p.right !== null ? '+' : '';
-          var lCode = p.left !== null ? esc(p.left) : '';
-          var rCode = p.right !== null ? esc(p.right) : '';
+          var lCode = p.left !== null ? esc(p.left.text) : '';
+          var rCode = p.right !== null ? esc(p.right.text) : '';
           tr.innerHTML =
             '<td class="diff-marker ' + lCls + '">' + lMark + '</td>' +
             '<td class="diff-code ' + lCls + '">' + lCode + '</td>' +
             '<td class="split-divider"></td>' +
             '<td class="diff-marker ' + rCls + '">' + rMark + '</td>' +
             '<td class="diff-code ' + rCls + '">' + rCode + '</td>';
+          tagLines(tr, p.left && p.left.old, p.right && p.right.nw);
         }
         split.appendChild(tr);
       });
 
       table.parentNode.insertBefore(split, table.nextSibling);
     });
+  }
+
+  function tagLines(tr, oldLn, newLn) {
+    var cells = tr.querySelectorAll('td.diff-code');
+    if (oldLn) cells[0].setAttribute('data-old-line', oldLn);
+    if (newLn) cells[1].setAttribute('data-new-line', newLn);
   }
 
   function esc(s) {
@@ -309,284 +326,622 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
   }
 })();
 
-// Comments visibility toggle
+// Review comments: select text in the story and start typing to comment,
+// then copy all comments as a prompt for an agent session
 (function() {
-  var btn = document.getElementById('comments-toggle');
-  if (!btn) return;
+  var root = document.documentElement;
+  var content = document.querySelector('.content');
+  var drawerEl = document.getElementById('comments-drawer');
+  if (!content || !drawerEl) return;
 
-  var saved = localStorage.getItem('diffstory-comments');
-  if (saved === 'false') {
-    document.documentElement.classList.remove('show-comments');
-  }
+  function $(id) { return document.getElementById(id); }
 
-  btn.addEventListener('click', function() {
-    var html = document.documentElement;
-    html.classList.toggle('show-comments');
-    localStorage.setItem('diffstory-comments', html.classList.contains('show-comments') ? 'true' : 'false');
+  var MAX_SNIPPET_LINES = 20;
+  var STORAGE_PREFIX = 'diffstory-notes-';
+  var STORAGE_KEY = STORAGE_PREFIX + (drawerEl.getAttribute('data-render-id') || document.title);
+  var prUrl = drawerEl.getAttribute('data-pr-url') || '';
+
+  var sections = [];
+  var intro = document.querySelector('.story-intro');
+  if (intro) sections.push({ el: intro, id: intro.id, title: 'Overview', header: null });
+  document.querySelectorAll('.story-section').forEach(function(el) {
+    var header = el.querySelector('.story-section-header');
+    sections.push({ el: el, id: header.id, title: header.querySelector('h3').textContent.trim(), header: header });
   });
-})();
+  var uncategorized = $('uncategorized');
+  if (uncategorized) sections.push({ el: uncategorized, id: 'uncategorized', title: 'Uncategorized', header: null });
 
-// Click-to-comment on diff lines + reply to threads
-(function() {
-  var prMeta = document.getElementById('pr-meta');
-  if (!prMeta) return;
+  var current = sections.length ? sections[0].id : null;
+  var selectedId = null;
+  var pending = null;
+  var editingId = null;
 
-  var repo = prMeta.getAttribute('data-pr-repo');
-  var number = prMeta.getAttribute('data-pr-number');
-  var headSha = prMeta.getAttribute('data-pr-head-sha');
+  pruneOldRenders();
+  var notes = load().filter(function(n) { return n && info(n) && typeof n.body === 'string'; });
 
-  if (!repo || !number || !headSha) return;
-
-  var tpl = document.getElementById('comment-form-tpl');
-  if (!tpl) return;
-
-  // Click on diff line numbers to add a comment inline
-  document.addEventListener('click', function(e) {
-    var lineNumCell = e.target.closest('.diff-line-num');
-    if (!lineNumCell) return;
-
-    var row = lineNumCell.closest('tr');
-    if (!row) return;
-
-    var file = row.getAttribute('data-file');
-    var line = row.getAttribute('data-line');
-    if (!file || !line) return;
-
-    // Check if a form already exists for this line
-    var nextRow = row.nextElementSibling;
-    if (nextRow && nextRow.classList.contains('comment-form-row')) {
-      var ta = nextRow.querySelector('.comment-textarea');
-      if (ta) ta.focus();
-      return;
-    }
-
-    // Insert comment form inline
-    var formRow = document.createElement('tr');
-    formRow.className = 'comment-form-row';
-    var td = document.createElement('td');
-    td.setAttribute('colspan', '3');
-    var form = tpl.content.cloneNode(true).querySelector('.comment-form');
-
-    var draftKey = 'diffstory-draft-' + file + '-' + line;
-    var textarea = form.querySelector('.comment-textarea');
-    var savedDraft = localStorage.getItem(draftKey);
-    if (savedDraft) textarea.value = savedDraft;
-
-    // Auto-save draft
-    textarea.addEventListener('input', function() {
-      localStorage.setItem(draftKey, textarea.value);
-    });
-
-    // Save to batch
-    form.querySelector('.comment-btn-copy').addEventListener('click', function() {
-      var text = textarea.value.trim();
-      if (!text) return;
-      localStorage.setItem(draftKey, text);
-      row.classList.add('has-draft');
-      formRow.classList.add('comment-form-saved');
-      var btn = form.querySelector('.comment-btn-copy');
-      btn.textContent = 'Saved!';
-      btn.classList.add('comment-btn-copied');
-      setTimeout(function() { formRow.remove(); }, 600);
-    });
-
-    // Cancel
-    form.querySelector('.comment-btn-reset').addEventListener('click', function() {
-      localStorage.removeItem(draftKey);
-      row.classList.remove('has-draft');
-      formRow.remove();
-    });
-
-    td.appendChild(form);
-    formRow.appendChild(td);
-    row.parentNode.insertBefore(formRow, row.nextSibling);
-    textarea.focus();
-  });
-
-  // Reply to existing thread
-  document.addEventListener('click', function(e) {
-    var replyBtn = e.target.closest('.reply-btn');
-    if (!replyBtn) return;
-
-    e.preventDefault();
-    var commentId = replyBtn.getAttribute('data-comment-id');
-    if (!commentId) return;
-
-    var thread = replyBtn.closest('.comment-thread');
-    if (!thread) return;
-
-    // Check if reply form already exists
-    if (thread.querySelector('.comment-form')) {
-      thread.querySelector('.comment-textarea').focus();
-      return;
-    }
-
-    var form = tpl.content.cloneNode(true).querySelector('.comment-form');
-    var draftKey = 'diffstory-reply-' + commentId;
-    var textarea = form.querySelector('.comment-textarea');
-    textarea.placeholder = 'Write a reply...';
-    var savedDraft = localStorage.getItem(draftKey);
-    if (savedDraft) textarea.value = savedDraft;
-
-    textarea.addEventListener('input', function() {
-      localStorage.setItem(draftKey, textarea.value);
-    });
-
-    var copyBtn = form.querySelector('.comment-btn-copy');
-    copyBtn.addEventListener('click', function() {
-      var text = textarea.value.trim();
-      if (!text) return;
-      localStorage.setItem(draftKey, text);
-      copyBtn.textContent = 'Saved!';
-      copyBtn.classList.add('comment-btn-copied');
-      setTimeout(function() { form.remove(); }, 600);
-    });
-
-    form.querySelector('.comment-btn-reset').addEventListener('click', function() {
-      localStorage.removeItem(draftKey);
-      form.remove();
-    });
-
-    thread.appendChild(form);
-    textarea.focus();
-  });
-
-  // Export all draft comments as a batch script
-  var exportBtn = document.getElementById('export-comments');
-  if (exportBtn) {
-    exportBtn.addEventListener('click', function() {
-      var commands = [];
-
-      // Collect new line comments from open inline forms
-      document.querySelectorAll('.comment-form-row').forEach(function(formRow) {
-        var textarea = formRow.querySelector('.comment-textarea');
-        if (!textarea || !textarea.value.trim()) return;
-        var prevRow = formRow.previousElementSibling;
-        if (!prevRow) return;
-        var file = prevRow.getAttribute('data-file');
-        var line = prevRow.getAttribute('data-line');
-        if (!file || !line) return;
-        commands.push(
-          'gh api --method POST repos/' + repo + '/pulls/' + number + '/comments' +
-          ' -f body=' + shellQuote(textarea.value.trim()) +
-          ' -f path=' + shellQuote(file) +
-          ' -F line=' + line +
-          ' -f commit_id=' + headSha +
-          ' -f side=RIGHT'
-        );
-      });
-
-      // Collect reply drafts from open forms in threads
-      document.querySelectorAll('.comment-thread .comment-form').forEach(function(form) {
-        var textarea = form.querySelector('.comment-textarea');
-        if (!textarea || !textarea.value.trim()) return;
-        var replyBtn = form.parentElement.querySelector('.reply-btn');
-        if (!replyBtn) return;
-        var commentId = replyBtn.getAttribute('data-comment-id');
-        if (!commentId) return;
-        commands.push(
-          'gh api --method POST repos/' + repo + '/pulls/' + number + '/comments' +
-          ' -f body=' + shellQuote(textarea.value.trim()) +
-          ' -F in_reply_to=' + commentId
-        );
-      });
-
-      // Also check localStorage for drafts without open forms
+  function pruneOldRenders() {
+    try {
+      var stale = [];
       for (var i = 0; i < localStorage.length; i++) {
         var key = localStorage.key(i);
-        if (!key) continue;
-        if (key.startsWith('diffstory-draft-')) {
-          var val = localStorage.getItem(key);
-          if (!val || !val.trim()) continue;
-          var parts = key.substring('diffstory-draft-'.length);
-          var lastDash = parts.lastIndexOf('-');
-          if (lastDash === -1) continue;
-          var file = parts.substring(0, lastDash);
-          var line = parts.substring(lastDash + 1);
-          // Check if this draft already has an open form (already collected above)
-          var existingForm = document.querySelector('tr[data-file="' + CSS.escape(file) + '"][data-line="' + line + '"] + .comment-form-row');
-          if (existingForm) continue; // already collected
-          commands.push(
-            'gh api --method POST repos/' + repo + '/pulls/' + number + '/comments' +
-            ' -f body=' + shellQuote(val.trim()) +
-            ' -f path=' + shellQuote(file) +
-            ' -F line=' + line +
-            ' -f commit_id=' + headSha +
-            ' -f side=RIGHT'
-          );
-        }
-        if (key.startsWith('diffstory-reply-')) {
-          var val = localStorage.getItem(key);
-          if (!val || !val.trim()) continue;
-          var commentId = key.substring('diffstory-reply-'.length);
-          var existingForm = document.querySelector('.reply-btn[data-comment-id="' + commentId + '"]');
-          if (existingForm && existingForm.closest('.comment-thread').querySelector('.comment-form')) continue;
-          commands.push(
-            'gh api --method POST repos/' + repo + '/pulls/' + number + '/comments' +
-            ' -f body=' + shellQuote(val.trim()) +
-            ' -F in_reply_to=' + commentId
-          );
+        if (key && key.indexOf(STORAGE_PREFIX) === 0 && key !== STORAGE_KEY) stale.push(key);
+      }
+      stale.forEach(function(key) { localStorage.removeItem(key); });
+    } catch (e) {}
+  }
+
+  function load() {
+    try {
+      var stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      return Array.isArray(stored) ? stored : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+    } catch (e) {}
+  }
+
+  function info(n) {
+    for (var i = 0; i < sections.length; i++) {
+      if (sections[i].id === n.section) return sections[i];
+    }
+    return null;
+  }
+
+  function sectionFor(el) {
+    var host = el.closest('.story-section, #uncategorized, .story-intro');
+    if (!host) {
+      // Group headers belong to the first section of their group
+      var group = el.closest('.story-group');
+      host = group && group.querySelector('.story-section');
+    }
+    for (var i = 0; host && i < sections.length; i++) {
+      if (sections[i].el === host) return sections[i];
+    }
+    return null;
+  }
+
+  function toast(text) {
+    var el = $('toast');
+    el.textContent = text;
+    el.classList.add('visible');
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(function() { el.classList.remove('visible'); }, 2200);
+  }
+
+  // --- Selection capture ---
+
+  // Part of `range` that falls inside `node`
+  function overlap(range, node) {
+    var r = document.createRange();
+    r.selectNodeContents(node);
+    if (range.compareBoundaryPoints(Range.START_TO_START, r) > 0) r.setStart(range.startContainer, range.startOffset);
+    if (range.compareBoundaryPoints(Range.END_TO_END, r) < 0) r.setEnd(range.endContainer, range.endOffset);
+    return r;
+  }
+
+  function containsNode(range, node) {
+    var r = document.createRange();
+    r.selectNodeContents(node);
+    return range.compareBoundaryPoints(Range.START_TO_START, r) <= 0 &&
+      range.compareBoundaryPoints(Range.END_TO_END, r) >= 0;
+  }
+
+  function isVisible(el) {
+    return el.offsetParent !== null;
+  }
+
+  function closestCell(node) {
+    var el = node.nodeType === 1 ? node : node.parentElement;
+    return el ? el.closest('td') : null;
+  }
+
+  function cellLine(cell) {
+    var split = cell.closest('table').classList.contains('diff-split');
+    var src = split ? cell : cell.closest('tr');
+    var marker;
+    if (split) {
+      marker = cell.classList.contains('split-add') ? '+' : cell.classList.contains('split-del') ? '-' : ' ';
+    } else {
+      var row = cell.closest('tr');
+      marker = row.classList.contains('diff-line-add') ? '+' : row.classList.contains('diff-line-del') ? '-' : ' ';
+    }
+    return {
+      marker: marker,
+      text: cell.textContent,
+      old: src.getAttribute('data-old-line'),
+      nw: src.getAttribute('data-new-line')
+    };
+  }
+
+  function rangeLabel(nums) {
+    var min = Math.min.apply(null, nums);
+    var max = Math.max.apply(null, nums);
+    return min === max ? 'L' + min : 'L' + min + '-L' + max;
+  }
+
+  function captureCode(range) {
+    var tables = Array.from(content.querySelectorAll('table.diff-table, table.diff-split')).filter(function(t) {
+      return isVisible(t) && range.intersectsNode(t);
+    });
+    var chunks = [];
+
+    tables.forEach(function(table) {
+      var cells = Array.from(table.querySelectorAll('td.diff-code')).filter(function(cell) {
+        if (cell.classList.contains('split-empty')) return false;
+        if (!range.intersectsNode(cell)) return false;
+        if (!overlap(range, cell).collapsed) return true;
+        return cell.textContent === '' && containsNode(range, cell);
+      });
+
+      // In split view, a selection within one column should not pick up the other
+      if (table.classList.contains('diff-split')) {
+        var startCell = closestCell(range.startContainer);
+        var endCell = closestCell(range.endContainer);
+        if (startCell && endCell && startCell.cellIndex === endCell.cellIndex) {
+          cells = cells.filter(function(c) { return c.cellIndex === startCell.cellIndex; });
         }
       }
+      if (cells.length === 0) return;
 
-      if (commands.length === 0) {
-        exportBtn.textContent = 'No drafts';
-        setTimeout(function() { exportBtn.textContent = '\uD83D\uDCE6'; }, 1500);
+      var lines = cells.map(cellLine);
+      var newNums = lines.filter(function(l) { return l.nw; }).map(function(l) { return +l.nw; });
+      var oldNums = lines.filter(function(l) { return l.old; }).map(function(l) { return +l.old; });
+      var file = table.getAttribute('data-file');
+
+      var selected = null;
+      if (cells.length === 1) {
+        var part = overlap(range, cells[0]).toString();
+        if (part.trim() && part !== cells[0].textContent) selected = part;
+      }
+
+      chunks.push({
+        where: newNums.length ? file + ':' + rangeLabel(newNums) : file + ' (old):' + rangeLabel(oldNums),
+        anchor: newNums.length
+          ? { file: file, line: newNums[0], side: 'new' }
+          : { file: file, line: oldNums[0], side: 'old' },
+        lines: lines,
+        selected: selected
+      });
+    });
+
+    if (chunks.length === 0) return null;
+
+    var snippet = [];
+    chunks.forEach(function(c) {
+      c.lines.forEach(function(l) { snippet.push(l.marker + l.text); });
+    });
+    if (snippet.length > MAX_SNIPPET_LINES) {
+      snippet = snippet.slice(0, MAX_SNIPPET_LINES).concat(['... (' + (snippet.length - MAX_SNIPPET_LINES) + ' more lines)']);
+    }
+
+    return {
+      kind: 'code',
+      location: chunks.map(function(c) { return c.where; }).join(', '),
+      anchor: chunks[0].anchor,
+      quote: snippet.join('\n'),
+      selected: chunks.length === 1 ? chunks[0].selected : null
+    };
+  }
+
+  // Generated ids wouldn't survive a reload, so anchor to the nearest rendered id
+  function stableAnchor(el) {
+    var withId = el && el.closest('[id]');
+    return withId && content.contains(withId) ? { id: withId.id } : null;
+  }
+
+  function captureText(range, el) {
+    var text = range.toString().trim();
+    if (!text) return null;
+    var location = 'Story';
+    var block;
+
+    if ((block = el.closest('.story-description'))) {
+      location = 'Story description';
+    } else if ((block = el.closest('.story-group-header'))) {
+      location = 'Group "' + block.querySelector('.story-group-title').textContent.trim() + '" description';
+    } else if ((block = el.closest('.story-section-header'))) {
+      location = 'Section "' + block.querySelector('h3').textContent.trim() + '" description';
+    } else if ((block = el.closest('.hunk-note'))) {
+      location = 'Note on ' + block.closest('.diff-file').querySelector('.diff-file-header').getAttribute('data-file');
+    } else if ((block = el.closest('.page-header'))) {
+      location = 'PR title';
+    } else if ((block = el.closest('.diff-file-header'))) {
+      location = 'File ' + block.getAttribute('data-file');
+    }
+
+    return {
+      kind: 'text',
+      location: location,
+      anchor: stableAnchor(block || el),
+      quote: text.slice(0, 3000)
+    };
+  }
+
+  function capture() {
+    var sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null;
+    var range = sel.getRangeAt(0);
+    if (!content.contains(range.commonAncestorContainer)) return null;
+    var node = range.startContainer;
+    var el = node.nodeType === 1 ? node : node.parentElement;
+    if (!el || el.closest('.section-comments, button')) return null;
+
+    var section = sectionFor(el);
+    if (!section) return null;
+    var note = captureCode(range) || captureText(range, el);
+    if (!note) return null;
+    note.section = section.id;
+    return note;
+  }
+
+  // --- Rendering ---
+
+  function getTarget(n) {
+    var sec = info(n).el;
+    var a = n.anchor;
+    if (a && a.id) return document.getElementById(a.id) || sec;
+    if (a && a.file) {
+      var tables = Array.from(sec.querySelectorAll('.diff-table, .diff-split')).filter(function(t) {
+        return isVisible(t) && t.getAttribute('data-file') === a.file;
+      });
+      var attr = a.side === 'old' ? 'data-old-line' : 'data-new-line';
+      for (var i = 0; i < tables.length; i++) {
+        var hit = a.line && tables[i].querySelector('[' + attr + '="' + a.line + '"]');
+        if (hit) return hit;
+      }
+      if (tables[0]) return tables[0];
+    }
+    return info(n).header || sec;
+  }
+
+  function reveal(n) {
+    var sec = info(n).el;
+    if (sec.classList.contains('collapsible')) sec.classList.add('open');
+    if (n.anchor && n.anchor.file) {
+      sec.querySelectorAll('.diff-file').forEach(function(f) {
+        var header = f.querySelector('.diff-file-header');
+        if (header && header.getAttribute('data-file') === n.anchor.file) f.classList.remove('folded');
+      });
+    }
+  }
+
+  function jump(n) {
+    selectedId = n.id;
+    reveal(n);
+    render();
+    document.querySelectorAll('.source-active').forEach(function(e) { e.classList.remove('source-active'); });
+    var target = getTarget(n);
+    target.classList.add('source-active');
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function makeButton(label, cls, fn) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    if (cls) b.className = cls;
+    b.addEventListener('click', fn);
+    return b;
+  }
+
+  function card(n, inList) {
+    var el = document.createElement('article');
+    el.className = (inList ? 'list-note' : 'context-note') + (selectedId === n.id ? ' selected' : '');
+    el.setAttribute('data-note-id', n.id);
+    el.appendChild(makeButton(n.location, 'comment-location', function() { jump(n); }));
+
+    if (n.quote) {
+      var details = document.createElement('details');
+      var summary = document.createElement('summary');
+      var pre = document.createElement('pre');
+      summary.textContent = 'Quoted context';
+      pre.textContent = n.quote;
+      details.appendChild(summary);
+      details.appendChild(pre);
+      el.appendChild(details);
+    }
+
+    var text = document.createElement('p');
+    text.className = 'comment-text';
+    text.textContent = n.body;
+    el.appendChild(text);
+
+    if (inList) el.appendChild(makeButton('Jump to section →', 'jump-link', function() { jump(n); }));
+
+    var tools = document.createElement('div');
+    tools.className = 'comment-tools';
+    tools.appendChild(makeButton('Edit', '', function() { edit(n); }));
+    tools.appendChild(makeButton('Delete', '', function() { remove(n); }));
+    el.appendChild(tools);
+    return el;
+  }
+
+  sections.forEach(function(s) {
+    var rail = document.createElement('aside');
+    rail.className = 'section-comments';
+    rail.setAttribute('aria-label', 'Comments on ' + s.title);
+    s.el.appendChild(rail);
+    s.rail = rail;
+
+    if (s.header) {
+      s.header.appendChild(makeButton('Add section comment', 'add-section-comment', function() {
+        pending = { section: s.id, kind: 'section', location: 'Section "' + s.title + '"', anchor: { id: s.id }, quote: '' };
+        openEditor(pending, '', false);
+      }));
+    }
+  });
+
+  function notesIn(s) {
+    return notes.filter(function(n) { return n.section === s.id; });
+  }
+
+  function render() {
+    $('comment-count').textContent = notes.length;
+    $('drawer-count').textContent = notes.length;
+
+    sections.forEach(function(s) {
+      s.rail.replaceChildren();
+      var ns = notesIn(s);
+      if (!ns.length) return;
+      var label = document.createElement('div');
+      label.className = 'section-comment-label';
+      label.textContent = ns.length + ' comment' + (ns.length === 1 ? '' : 's');
+      s.rail.appendChild(label);
+      ns.map(function(n) { return { n: n, top: getTarget(n).getBoundingClientRect().top }; })
+        .sort(function(a, b) { return a.top - b.top; })
+        .forEach(function(x) { s.rail.appendChild(card(x.n, false)); });
+    });
+
+    var list = $('all-comments');
+    list.replaceChildren();
+    var showAll = $('comment-filter').value === 'all';
+    var total = 0;
+    sections.forEach(function(s) {
+      if (!showAll && s.id !== current) return;
+      var ns = notesIn(s);
+      if (!ns.length) return;
+      total += ns.length;
+      var h = document.createElement('h3');
+      h.className = 'comment-group-title';
+      h.textContent = s.title + ' · ' + ns.length;
+      list.appendChild(h);
+      ns.forEach(function(n) { list.appendChild(card(n, true)); });
+    });
+    if (!total) {
+      var p = document.createElement('p');
+      p.className = 'empty-comments';
+      p.textContent = 'No comments here yet. Select story text or code, then start typing.';
+      list.appendChild(p);
+    }
+    scheduleLayout();
+  }
+
+  // Align rail cards with the lines they refer to, without overlapping each other
+  var frame = 0;
+  function scheduleLayout() {
+    if (frame) return;
+    frame = requestAnimationFrame(function() { frame = 0; layout(); });
+  }
+
+  function layout() {
+    if (root.classList.contains('drawer-open')) return;
+    sections.forEach(function(s) {
+      var cards = s.rail.querySelectorAll('.context-note');
+      if (window.innerWidth <= 900 || !cards.length) {
+        s.el.style.minHeight = '';
+        s.rail.style.minHeight = '';
+        cards.forEach(function(e) { e.style.marginTop = ''; });
         return;
       }
-
-      var script = '#!/bin/sh\n# ' + commands.length + ' comment(s) for PR #' + number + '\nset -e\n\n' +
-        commands.join('\n\n') + '\n\necho "Posted ' + commands.length + ' comment(s)"\n';
-
-      navigator.clipboard.writeText(script).then(function() {
-        // Clear all drafts
-        var keysToRemove = [];
-        for (var k = 0; k < localStorage.length; k++) {
-          var lsKey = localStorage.key(k);
-          if (lsKey && (lsKey.startsWith('diffstory-draft-') || lsKey.startsWith('diffstory-reply-'))) {
-            keysToRemove.push(lsKey);
-          }
-        }
-        keysToRemove.forEach(function(k) { localStorage.removeItem(k); });
-
-        // Remove draft indicators and open forms
-        document.querySelectorAll('.has-draft').forEach(function(el) { el.classList.remove('has-draft'); });
-        document.querySelectorAll('.comment-form-row').forEach(function(el) { el.remove(); });
-        document.querySelectorAll('.comment-thread .comment-form').forEach(function(el) { el.remove(); });
-
-        exportBtn.textContent = commands.length + ' copied!';
-        exportBtn.classList.add('comment-btn-copied');
-        setTimeout(function() {
-          exportBtn.textContent = '\uD83D\uDCE6';
-          exportBtn.classList.remove('comment-btn-copied');
-        }, 2000);
+      var bottom = 22;
+      var sectionTop = s.el.getBoundingClientRect().top;
+      cards.forEach(function(e) {
+        var n = notes.find(function(n) { return n.id === e.getAttribute('data-note-id'); });
+        var wanted = getTarget(n).getBoundingClientRect().top - sectionTop;
+        var margin = Math.max(0, wanted - bottom);
+        e.style.marginTop = margin + 'px';
+        bottom += margin + e.offsetHeight + 12;
       });
+      s.rail.style.minHeight = bottom + 'px';
+      s.el.style.minHeight = bottom + 'px';
     });
   }
 
-  // Restore saved drafts on page load — mark rows with draft indicators
-  (function restoreDrafts() {
-    for (var i = 0; i < localStorage.length; i++) {
-      var key = localStorage.key(i);
-      if (!key) continue;
+  // --- Editing ---
 
-      if (key.startsWith('diffstory-draft-')) {
-        var parts = key.substring('diffstory-draft-'.length);
-        var lastDash = parts.lastIndexOf('-');
-        if (lastDash === -1) continue;
-        var file = parts.substring(0, lastDash);
-        var line = parts.substring(lastDash + 1);
-
-        // Mark the diff line row with a draft indicator
-        var rows = document.querySelectorAll('tr[data-file="' + CSS.escape(file) + '"][data-line="' + line + '"]');
-        if (rows.length > 0) {
-          rows[0].classList.add('has-draft');
-        }
-      }
-    }
-  })();
-
-  function shellQuote(s) {
-    return "'" + s.replace(/'/g, "'\\''") + "'";
+  function openEditor(n, value, isEdit) {
+    $('editor-heading').textContent = isEdit ? 'Edit comment' : 'Add comment';
+    $('editor-location').textContent = n.location;
+    $('editor-quote').textContent = n.quote || '';
+    $('editor-quote').hidden = !n.quote;
+    $('comment-body').value = value;
+    $('comment-editor').showModal();
+    var ta = $('comment-body');
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
   }
+
+  function edit(n) {
+    editingId = n.id;
+    pending = n;
+    openEditor(n, n.body, true);
+  }
+
+  function remove(n) {
+    notes = notes.filter(function(x) { return x.id !== n.id; });
+    save();
+    render();
+    toast('Comment deleted');
+  }
+
+  function saveEditor() {
+    var body = $('comment-body').value.trim();
+    if (!body) return false;
+    if (editingId) {
+      var existing = notes.find(function(n) { return n.id === editingId; });
+      if (existing) existing.body = body;
+    } else {
+      var n = Object.assign({}, pending, { id: 'note-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8), body: body });
+      notes.push(n);
+      selectedId = n.id;
+    }
+    save();
+    render();
+    var sel = window.getSelection();
+    if (sel) sel.removeAllRanges();
+    toast('Comment saved');
+    return true;
+  }
+
+  $('comment-editor').addEventListener('close', function() {
+    editingId = null;
+  });
+
+  $('comment-editor').querySelector('form').addEventListener('submit', function(e) {
+    if (!e.submitter || e.submitter.value !== 'save') return;
+    if (!saveEditor()) e.preventDefault();
+  });
+
+  $('comment-body').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      if (saveEditor()) $('comment-editor').close();
+    }
+  });
+
+  // Capture phase so the j/k section navigation doesn't swallow the first keystroke
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      drawer(false);
+      return;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.key.length !== 1) return;
+    if (e.target.closest && e.target.closest('input, textarea, select, button, [contenteditable], dialog')) return;
+    var n = capture();
+    if (!n) return;
+    e.preventDefault();
+    pending = n;
+    editingId = null;
+    openEditor(n, e.key, false);
+  }, true);
+
+  // --- Drawer, outline, layout switch ---
+
+  function drawer(open) {
+    root.classList.toggle('drawer-open', open);
+    drawerEl.hidden = !open;
+    $('comments-toggle').setAttribute('aria-expanded', String(open));
+    scheduleLayout();
+  }
+
+  $('comments-toggle').addEventListener('click', function() { drawer(!root.classList.contains('drawer-open')); });
+  $('close-comments').addEventListener('click', function() { drawer(false); });
+  $('comment-filter').addEventListener('change', render);
+
+  $('outline-toggle').addEventListener('click', function() {
+    var open = root.classList.toggle('outline-open');
+    $('outline-toggle').setAttribute('aria-expanded', String(open));
+  });
+  $('toc').addEventListener('click', function(e) {
+    if (!e.target.closest('a')) return;
+    root.classList.remove('outline-open');
+    $('outline-toggle').setAttribute('aria-expanded', 'false');
+  });
+
+  var ticking = false;
+  window.addEventListener('scroll', function() {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(function() {
+      ticking = false;
+      var active = sections[0];
+      sections.forEach(function(s) {
+        if (s.el.getBoundingClientRect().top < window.innerHeight * 0.3) active = s;
+      });
+      if (active && current !== active.id) {
+        current = active.id;
+        if ($('comment-filter').value === 'current') render();
+      }
+    });
+  }, { passive: true });
+
+  window.addEventListener('resize', scheduleLayout);
+  document.querySelectorAll('#inline-mode, #split-mode, .diff-fold-btn, .viewed-checkbox, .collapsible-header').forEach(function(b) {
+    b.addEventListener('click', function() { setTimeout(scheduleLayout, 0); });
+  });
+
+  // --- Prompt export ---
+
+  function buildPrompt() {
+    var title = document.querySelector('.page-header h1');
+    var head = 'Review comments on the PR "' + (title ? title.textContent.trim() : document.title) + '"' +
+      (prUrl ? ' (' + prUrl + ')' : '') + '.\n' +
+      'Address each comment below. Line numbers refer to the new version of the file unless marked (old).\n';
+
+    var parts = notes.map(function(n, i) {
+      var out = '## ' + (i + 1) + '. ' + n.location + '\n';
+      var sec = info(n);
+      if (sec && n.kind !== 'section') out += 'Story section: ' + sec.title + '\n';
+      out += '\n';
+      if (n.kind === 'code') {
+        out += '```diff\n' + n.quote + '\n```\n';
+        if (n.selected) out += 'Selected: `' + n.selected + '`\n';
+        out += '\n';
+      } else if (n.quote) {
+        out += n.quote.split('\n').map(function(l) { return '> ' + l; }).join('\n') + '\n\n';
+      }
+      return out + n.body.trim() + '\n';
+    });
+
+    return head + '\n' + parts.join('\n');
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).catch(function() { return fallbackCopy(text); });
+    }
+    return fallbackCopy(text);
+  }
+
+  function fallbackCopy(text) {
+    var t = document.createElement('textarea');
+    t.value = text;
+    t.style.position = 'fixed';
+    t.style.left = '-9999px';
+    document.body.appendChild(t);
+    t.select();
+    var ok = document.execCommand('copy');
+    t.remove();
+    return ok ? Promise.resolve() : Promise.reject(new Error('copy failed'));
+  }
+
+  $('copy-comments').addEventListener('click', function() {
+    if (!notes.length) {
+      toast('No comments to copy');
+      return;
+    }
+    copyText(buildPrompt()).then(function() {
+      notes = [];
+      save();
+      render();
+      toast('Prompt copied, comments cleared');
+    }, function() {
+      toast('Copy failed');
+    });
+  });
+
+  $('clear-comments').addEventListener('click', function() {
+    if (!notes.length || !confirm('Delete all ' + notes.length + ' comments?')) return;
+    notes = [];
+    save();
+    render();
+    toast('Comments cleared');
+  });
+
+  render();
 })();

@@ -18,7 +18,7 @@ diffstory view https://github.com/owner/repo/pull/123
 diffstory view --story story.json --diff changes.diff
 ```
 
-Both open a standalone HTML viewer in your browser. When viewing a PR URL, review comments and issue comments are fetched and displayed inline with the diff.
+Both open a standalone HTML viewer in your browser.
 
 **Encode a storyline for embedding in a PR description:**
 ```
@@ -71,14 +71,8 @@ diffstory validate --story story.json --diff changes.diff
 
 Hunks are referenced by file path and 0-based index within that file's diff. Every hunk should be assigned to a section. Unassigned hunks appear in an "Uncategorized" block in the viewer.
 
-## PR Comments
+## Review Comments
 
-When viewing a GitHub PR, the viewer automatically fetches and displays:
+Select any text in the viewer (story/group/section descriptions, hunk notes, or diff lines) and start typing to open the comment editor. Comments show up beside the section they belong to, and in the **Comments** drawer in the top bar. They are saved in localStorage for the current render; regenerating the viewer starts fresh.
 
-- **Review comments** — shown inline at the exact diff lines they reference, with threaded replies
-- **Issue comments** — shown in a "Discussion" block above the story content
-- **Outdated comments** — review comments that no longer map to current diff lines, shown in a collapsible section
-
-The toolbar has a comments toggle button to show/hide all comments.
-
-**Creating comments:** Click any diff line number to open an inline comment form. You can draft comments across the entire diff, then click the **Export** button (&#128230;) in the toolbar to copy a batch shell script with all `gh api` commands to your clipboard. Paste and run it to post all comments at once. Individual comments also have a "Copy gh command" button for one-offs. Reply forms work the same way on existing threads. Drafts are auto-saved to localStorage.
+**Copy prompt** (in the drawer) copies all comments as a single prompt for an agent session, then clears them. Text selections are quoted; code selections include `file:Lstart-Lend` (new-file line numbers, or `(old)` for deletion-only selections) and a diff snippet.

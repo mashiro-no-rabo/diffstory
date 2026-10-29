@@ -1,6 +1,5 @@
 use comrak::{markdown_to_html, Options};
 
-use crate::comments::{CommentThread, GqlReviewThread, IssueComment, OutdatedComment, ReviewComment};
 use crate::diff_parser::{DiffLine, FileDiff, Hunk};
 use crate::github::PrInfo;
 use crate::matcher::{ResolvedGroup, ResolvedHunk, ResolvedSection, ResolvedStory, UncategorizedHunk};
@@ -11,7 +10,6 @@ const JS: &str = include_str!("../../assets/viewer.js");
 
 pub fn render(story: &ResolvedStory, title: Option<&str>, author: Option<&str>, pr_info: Option<&PrInfo>) -> String {
   let display_title = title.unwrap_or("Diffstory");
-  let has_comments = pr_info.is_some();
 
   let header_author = match author {
     Some(a) => format!("<p class=\"author\">by {}</p>", html_escape(a)),
@@ -26,69 +24,27 @@ pub fn render(story: &ResolvedStory, title: Option<&str>, author: Option<&str>, 
   let toc = render_toc(&story.groups, &story.uncategorized);
   let groups = render_groups(&story.groups);
   let uncategorized = render_uncategorized(&story.uncategorized);
-  let (coverage, sidebar_coverage) = render_coverage(story);
-  let issue_comments = render_issue_comments(&story.issue_comments);
-  let outdated_comments = render_outdated_comments(&story.outdated_comments);
-  let pr_meta = render_pr_meta(pr_info);
-
-  // Right panel content (resolved, bot — not active comments)
-  let resolved_comments = render_resolved_section(&story.resolved_threads);
-  let bot_comments = render_bot_section(&story.bot_review_threads, &story.bot_issue_comments);
-
-  let has_right_panel = !story.resolved_threads.is_empty()
-    || !story.bot_review_threads.is_empty()
-    || !story.bot_issue_comments.is_empty()
-    || !story.issue_comments.is_empty();
-
-  let html_class = if has_comments && has_right_panel {
-    "class=\"show-comments has-right-panel\""
-  } else if has_comments {
-    "class=\"show-comments\""
-  } else {
-    "class=\"\""
-  };
+  let progress = render_progress(story);
+  let pr_url = pr_info
+    .map(|info| format!("https://github.com/{}/pull/{}", info.repo, info.number))
+    .unwrap_or_default();
 
   TEMPLATE
-    .replace("{{HTML_CLASS}}", html_class)
     .replace("{{TITLE}}", &html_escape(display_title))
     .replace("{{CSS}}", CSS)
     .replace("{{JS}}", JS)
     .replace("{{TOC}}", &toc)
     .replace("{{HEADER_TITLE}}", &html_escape(display_title))
     .replace("{{HEADER_AUTHOR}}", &header_author)
-    .replace("{{COVERAGE}}", &coverage)
-    .replace("{{SIDEBAR_COVERAGE}}", &sidebar_coverage)
+    .replace("{{PROGRESS}}", &progress)
     .replace("{{DESCRIPTION}}", &description)
-    .replace("{{ISSUE_COMMENTS}}", &issue_comments)
     .replace("{{GROUPS}}", &groups)
-    .replace("{{OUTDATED_COMMENTS}}", &outdated_comments)
     .replace("{{UNCATEGORIZED}}", &uncategorized)
-    .replace("{{PR_META}}", &pr_meta)
-    .replace("{{COMMENTS_TOGGLE}}", if has_comments {
-      "<button class=\"toolbar-btn\" id=\"comments-toggle\" title=\"Toggle comments\">\
-        <span class=\"icon-comments-on\">&#128172;</span><span class=\"icon-comments-off\">&#128173;</span>\
-      </button>"
-    } else { "" })
-    .replace("{{EXPORT_BTN}}", if has_comments {
-      "<button class=\"toolbar-btn\" id=\"export-comments\" title=\"Export all draft comments\">&#128230;</button>"
-    } else { "" })
-    .replace("{{RESOLVED_COMMENTS}}", &resolved_comments)
-    .replace("{{BOT_COMMENTS}}", &bot_comments)
+    .replace("{{PR_URL}}", &html_escape(&pr_url))
+    .replace("{{RENDER_ID}}", &render_id())
 }
 
-fn render_pr_meta(pr_info: Option<&PrInfo>) -> String {
-  match pr_info {
-    Some(info) => format!(
-      "<div id=\"pr-meta\" data-pr-repo=\"{}\" data-pr-number=\"{}\" data-pr-head-sha=\"{}\" style=\"display:none\"></div>",
-      html_escape(&info.repo),
-      info.number,
-      html_escape(&info.head_sha),
-    ),
-    None => String::new(),
-  }
-}
-
-fn render_coverage(story: &ResolvedStory) -> (String, String) {
+fn render_progress(story: &ResolvedStory) -> String {
   let covered: usize = story
     .groups
     .iter()
@@ -98,25 +54,20 @@ fn render_coverage(story: &ResolvedStory) -> (String, String) {
   let total = covered + story.uncategorized.len();
 
   if total == 0 {
-    return (String::new(), String::new());
+    return String::new();
   }
 
-  let pct = (covered as f64 / total as f64) * 100.0;
-  let cls = if story.uncategorized.is_empty() { "full" } else { "partial" };
-
-  let inner = format!(
-    "<div class=\"coverage\">\
-      <div class=\"coverage-bar\"><div class=\"coverage-fill {cls}\" style=\"width:{pct:.0}%\"></div></div>\
-      <span>{covered}/{total} hunks covered ({pct:.0}%)</span>\
+  format!(
+    "<div class=\"top-progress\">\
+      <progress value=\"{covered}\" max=\"{total}\" aria-label=\"Hunks explained\"></progress>\
+      <span>{covered} / {total} hunks explained</span>\
     </div>"
-  );
-
-  let sidebar = format!("<div class=\"sidebar-coverage\">{inner}</div>");
-  (inner, sidebar)
+  )
 }
 
 fn render_toc(groups: &[ResolvedGroup], uncategorized: &[UncategorizedHunk]) -> String {
   let mut html = String::new();
+  let mut number = 0;
 
   for (gi, grp) in groups.iter().enumerate() {
     if grp.sections.is_empty() {
@@ -128,8 +79,9 @@ fn render_toc(groups: &[ResolvedGroup], uncategorized: &[UncategorizedHunk]) -> 
     ));
     for (si, sec) in grp.sections.iter().enumerate() {
       let id = section_id(gi, si);
+      number += 1;
       html.push_str(&format!(
-        "<li><a href=\"#{id}\" data-section=\"{id}\">{}</a></li>\n",
+        "<li><a href=\"#{id}\" data-section=\"{id}\" data-number=\"{number:02}\">{}</a></li>\n",
         html_escape(&sec.title)
       ));
     }
@@ -137,7 +89,10 @@ fn render_toc(groups: &[ResolvedGroup], uncategorized: &[UncategorizedHunk]) -> 
 
   if !uncategorized.is_empty() {
     html.push_str("<li class=\"toc-group\">Other</li>\n");
-    html.push_str("<li><a href=\"#uncategorized\">Uncategorized</a></li>\n");
+    html.push_str(&format!(
+      "<li><a href=\"#uncategorized\" data-section=\"uncategorized\" data-number=\"{:02}\">Uncategorized</a></li>\n",
+      number + 1
+    ));
   }
 
   html
@@ -222,7 +177,7 @@ fn render_hunks_grouped(hunks: &[ResolvedHunk]) -> String {
           md_to_html(note)
         ));
       }
-      html.push_str(&render_hunk_table(&rh.hunk, &rh.file_path, rh.hunk_index, &rh.comments));
+      html.push_str(&render_hunk_table(&rh.hunk, &rh.file_path));
       i += 1;
     }
 
@@ -274,91 +229,57 @@ fn render_file_header(file_diff: &FileDiff, path: &str) -> String {
   )
 }
 
-fn render_hunk_table(hunk: &Hunk, file_path: &str, hunk_index: usize, comments: &[CommentThread]) -> String {
+fn render_hunk_table(hunk: &Hunk, file_path: &str) -> String {
   let mut html = String::new();
   html.push_str(&format!(
-    "<table class=\"diff-table\" data-comment-target=\"{}:{}\">\n",
-    html_escape(file_path), hunk_index
+    "<table class=\"diff-table\" data-file=\"{}\">\n",
+    html_escape(file_path)
   ));
 
-  // Hunk header row
   html.push_str("<tr class=\"diff-hunk-header\">");
   html.push_str(&format!("<td colspan=\"3\">{}</td>", html_escape(&hunk.header)));
   html.push_str("</tr>\n");
 
-  // Parse hunk header for line numbers
-  let (mut new_line, mut _old_line) = parse_hunk_start(&hunk.header);
+  let (mut new_line, mut old_line) = parse_hunk_start(&hunk.header);
 
-  for (offset, line) in hunk.lines.iter().enumerate() {
-    let (class, marker, content, cur_new_line) = match line {
+  for line in &hunk.lines {
+    let (class, marker, content, old_ln, new_ln) = match line {
       DiffLine::Addition(s) => {
-        let ln = new_line;
         new_line += 1;
-        ("diff-line-add", "+", s.as_str(), Some(ln))
+        ("diff-line-add", "+", s.as_str(), None, Some(new_line - 1))
       }
       DiffLine::Deletion(s) => {
-        _old_line += 1;
-        ("diff-line-del", "-", s.as_str(), None::<u32>)
+        old_line += 1;
+        ("diff-line-del", "-", s.as_str(), Some(old_line - 1), None)
       }
       DiffLine::Context(s) => {
-        let ln = new_line;
         new_line += 1;
-        _old_line += 1;
-        ("diff-line-ctx", " ", s.as_str(), Some(ln))
+        old_line += 1;
+        ("diff-line-ctx", " ", s.as_str(), Some(old_line - 1), Some(new_line - 1))
       }
-      DiffLine::NoNewlineAtEof => ("diff-line-noeof", "", "\\ No newline at end of file", None),
+      DiffLine::NoNewlineAtEof => ("diff-line-noeof", "", "\\ No newline at end of file", None, None),
     };
 
-    // Add data attributes for the comment click handler
-    let line_attr = match cur_new_line {
-      Some(ln) => format!(" data-file=\"{}\" data-line=\"{}\"", html_escape(file_path), ln),
-      None => String::new(),
-    };
+    let mut line_attrs = String::new();
+    if let Some(ln) = old_ln {
+      line_attrs.push_str(&format!(" data-old-line=\"{ln}\""));
+    }
+    if let Some(ln) = new_ln {
+      line_attrs.push_str(&format!(" data-new-line=\"{ln}\""));
+    }
 
     html.push_str(&format!(
-      "<tr class=\"{class}\"{line_attr}>\
+      "<tr class=\"{class}\"{line_attrs}>\
         <td class=\"diff-line-num\">{}</td>\
         <td class=\"diff-marker\">{marker}</td>\
         <td class=\"diff-code\">{}</td>\
       </tr>\n",
-      match cur_new_line { Some(ln) => ln.to_string(), None => String::new() },
+      new_ln.or(old_ln).map(|ln| ln.to_string()).unwrap_or_default(),
       html_escape(content)
     ));
-
-    // Insert inline comment rows at this offset
-    for thread in comments.iter().filter(|t| t.root.line_offset == offset) {
-      html.push_str(&render_inline_comment_thread(thread));
-    }
   }
 
   html.push_str("</table>\n");
-  html
-}
-
-fn render_inline_comment_thread(thread: &CommentThread) -> String {
-  let mut html = String::new();
-  html.push_str("<tr class=\"comment-row\"><td colspan=\"3\">\n");
-  html.push_str("<div class=\"comment-thread\">\n");
-
-  // Root comment
-  html.push_str(&render_single_comment(
-    &thread.root.comment,
-    thread.root.is_outdated,
-  ));
-
-  // Replies
-  for reply in &thread.replies {
-    html.push_str(&render_single_comment(reply, false));
-  }
-
-  // Reply link
-  html.push_str(&format!(
-    "<div class=\"comment-reply-link\"><a href=\"#\" class=\"reply-btn\" data-comment-id=\"{}\">Reply</a></div>\n",
-    thread.root.comment.id
-  ));
-
-  html.push_str("</div>\n");
-  html.push_str("</td></tr>\n");
   html
 }
 
@@ -383,181 +304,6 @@ fn parse_hunk_start(header: &str) -> (u32, u32) {
   (new_start, old_start)
 }
 
-fn render_single_comment(comment: &ReviewComment, is_outdated: bool) -> String {
-  let outdated_badge = if is_outdated {
-    " <span class=\"outdated-badge\">outdated</span>"
-  } else {
-    ""
-  };
-
-  format!(
-    "<div class=\"comment\">\
-      <div class=\"comment-header\">\
-        <span class=\"comment-author\">{}</span>{outdated_badge}\
-        <span class=\"comment-date\">{}</span>\
-      </div>\
-      <div class=\"comment-body markdown-body\">{}</div>\
-    </div>\n",
-    html_escape(&comment.user.login),
-    format_date(&comment.created_at),
-    md_to_html(&comment.body),
-  )
-}
-
-fn render_issue_comments(comments: &[IssueComment]) -> String {
-  if comments.is_empty() {
-    return String::new();
-  }
-
-  let mut html = String::new();
-  html.push_str("<section class=\"issue-comments\">\n");
-  html.push_str("<h2>Discussion</h2>\n");
-
-  for comment in comments {
-    html.push_str(&format!(
-      "<div class=\"issue-comment\">\
-        <div class=\"comment-header\">\
-          <span class=\"comment-author\">{}</span>\
-          <span class=\"comment-date\">{}</span>\
-        </div>\
-        <div class=\"comment-body markdown-body\">{}</div>\
-      </div>\n",
-      html_escape(&comment.user.login),
-      format_date(&comment.created_at),
-      md_to_html(&comment.body),
-    ));
-  }
-
-  html.push_str("</section>\n");
-  html
-}
-
-fn render_outdated_comments(comments: &[OutdatedComment]) -> String {
-  if comments.is_empty() {
-    return String::new();
-  }
-
-  let mut html = String::new();
-  html.push_str("<div class=\"collapsible\" id=\"outdated-comments\">\n");
-  html.push_str(&format!(
-    "<div class=\"collapsible-header\">Outdated Comments ({} comments)</div>\n",
-    comments.len()
-  ));
-  html.push_str("<div class=\"collapsible-body\">\n");
-
-  // Group by file
-  let mut by_file: Vec<(&str, Vec<&OutdatedComment>)> = Vec::new();
-  for c in comments {
-    if let Some(group) = by_file.iter_mut().find(|(f, _)| *f == c.file.as_str()) {
-      group.1.push(c);
-    } else {
-      by_file.push((&c.file, vec![c]));
-    }
-  }
-
-  for (file, group) in &by_file {
-    html.push_str(&format!(
-      "<div class=\"outdated-file-group\">\
-        <div class=\"outdated-file-header\">{}</div>\n",
-      html_escape(file)
-    ));
-    for oc in group {
-      html.push_str(&format!(
-        "<div class=\"comment\">\
-          <div class=\"comment-header\">\
-            <span class=\"comment-author\">{}</span>\
-            <span class=\"outdated-badge\">outdated</span>\
-            <span class=\"comment-date\">{}</span>\
-          </div>\
-          <div class=\"comment-body markdown-body\">{}</div>\
-        </div>\n",
-        html_escape(&oc.comment.user.login),
-        format_date(&oc.comment.created_at),
-        md_to_html(&oc.comment.body),
-      ));
-    }
-    html.push_str("</div>\n");
-  }
-
-  html.push_str("</div>\n</div>\n");
-  html
-}
-
-fn render_resolved_section(threads: &[GqlReviewThread]) -> String {
-  if threads.is_empty() {
-    return String::new();
-  }
-
-  let total_comments: usize = threads.iter().map(|t| t.comments.len()).sum();
-  let mut html = String::new();
-  html.push_str("<div class=\"collapsible\" id=\"resolved-comments\">\n");
-  html.push_str(&format!(
-    "<div class=\"collapsible-header\">Resolved ({} threads, {} comments)</div>\n",
-    threads.len(), total_comments
-  ));
-  html.push_str("<div class=\"collapsible-body\">\n");
-
-  for thread in threads {
-    html.push_str(&format!(
-      "<div class=\"panel-comment-group\">\n<div class=\"panel-comment-file\">{}</div>\n",
-      html_escape(&thread.path)
-    ));
-    html.push_str("<div class=\"comment-thread\">\n");
-    for comment in &thread.comments {
-      html.push_str(&render_single_comment(comment, false));
-    }
-    html.push_str("</div>\n</div>\n");
-  }
-
-  html.push_str("</div>\n</div>\n");
-  html
-}
-
-fn render_bot_section(review_threads: &[GqlReviewThread], issue_comments: &[IssueComment]) -> String {
-  if review_threads.is_empty() && issue_comments.is_empty() {
-    return String::new();
-  }
-
-  let mut html = String::new();
-  let count = review_threads.len() + issue_comments.len();
-  html.push_str("<div class=\"collapsible\" id=\"bot-comments\">\n");
-  html.push_str(&format!(
-    "<div class=\"collapsible-header\">Bot Comments ({})</div>\n",
-    count
-  ));
-  html.push_str("<div class=\"collapsible-body\">\n");
-
-  for thread in review_threads {
-    html.push_str(&format!(
-      "<div class=\"panel-comment-group\">\n<div class=\"panel-comment-file\">{}</div>\n",
-      html_escape(&thread.path)
-    ));
-    html.push_str("<div class=\"comment-thread\">\n");
-    for comment in &thread.comments {
-      html.push_str(&render_single_comment(comment, false));
-    }
-    html.push_str("</div>\n</div>\n");
-  }
-
-  for comment in issue_comments {
-    html.push_str(&format!(
-      "<div class=\"issue-comment\">\
-        <div class=\"comment-header\">\
-          <span class=\"comment-author\">{}</span>\
-          <span class=\"comment-date\">{}</span>\
-        </div>\
-        <div class=\"comment-body markdown-body\">{}</div>\
-      </div>\n",
-      html_escape(&comment.user.login),
-      format_date(&comment.created_at),
-      md_to_html(&comment.body),
-    ));
-  }
-
-  html.push_str("</div>\n</div>\n");
-  html
-}
-
 fn render_uncategorized(uncategorized: &[UncategorizedHunk]) -> String {
   if uncategorized.is_empty() {
     return String::new();
@@ -578,7 +324,7 @@ fn render_uncategorized(uncategorized: &[UncategorizedHunk]) -> String {
     html.push_str(&render_file_header(&uncategorized[i].file_diff, file_path));
 
     while i < uncategorized.len() && uncategorized[i].file_path == *file_path {
-      html.push_str(&render_hunk_table(&uncategorized[i].hunk, &uncategorized[i].file_path, uncategorized[i].hunk_index, &uncategorized[i].comments));
+      html.push_str(&render_hunk_table(&uncategorized[i].hunk, &uncategorized[i].file_path));
       i += 1;
     }
 
@@ -589,10 +335,12 @@ fn render_uncategorized(uncategorized: &[UncategorizedHunk]) -> String {
   html
 }
 
-/// Format an ISO date string to a shorter display format.
-fn format_date(iso: &str) -> String {
-  // Just show the date portion: "2024-01-15T10:30:00Z" -> "2024-01-15"
-  iso.split('T').next().unwrap_or(iso).to_string()
+// Notes are keyed per render so a regenerated viewer doesn't show notes made against an older diff
+fn render_id() -> String {
+  std::time::SystemTime::now()
+    .duration_since(std::time::UNIX_EPOCH)
+    .map(|d| d.as_millis().to_string())
+    .unwrap_or_default()
 }
 
 fn md_to_html(markdown: &str) -> String {
