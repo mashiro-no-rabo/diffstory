@@ -1,31 +1,44 @@
 // TOC highlight via scroll position
 (function() {
-  var sections = Array.from(document.querySelectorAll('.story-section-header'));
+  var sections = Array.from(document.querySelectorAll('.story-section-header, #uncategorized'));
   var tocLinks = document.querySelectorAll('.toc a[data-section]');
 
   if (sections.length === 0) return;
 
-  function updateToc() {
-    var scrollTop = window.scrollY || document.documentElement.scrollTop;
-    var threshold = window.innerHeight * 0.15;
-    var activeId = null;
+  // Clicked target stays highlighted until the user scrolls, since sections near the page end can't reach the top
+  var pinnedId = null;
 
-    // Find the last section header that has scrolled past the threshold
-    for (var i = sections.length - 1; i >= 0; i--) {
-      if (sections[i].getBoundingClientRect().top <= threshold) {
-        activeId = sections[i].id;
-        break;
+  function updateToc() {
+    var activeId = pinnedId;
+
+    if (!activeId) {
+      var threshold = parseFloat(getComputedStyle(sections[0]).scrollMarginTop) + 2;
+      for (var i = sections.length - 1; i >= 0; i--) {
+        if (sections[i].getBoundingClientRect().top <= threshold) {
+          activeId = sections[i].id;
+          break;
+        }
       }
     }
 
     tocLinks.forEach(function(link) {
-      if (activeId && link.getAttribute('href') === '#' + activeId) {
-        link.classList.add('active');
-      } else {
-        link.classList.remove('active');
-      }
+      link.classList.toggle('active', link.getAttribute('data-section') === activeId);
     });
   }
+
+  tocLinks.forEach(function(link) {
+    link.addEventListener('click', function() {
+      pinnedId = link.getAttribute('data-section');
+      updateToc();
+    });
+  });
+
+  function unpin() {
+    if (pinnedId) { pinnedId = null; updateToc(); }
+  }
+  ['wheel', 'touchmove', 'keydown', 'mousedown'].forEach(function(type) {
+    window.addEventListener(type, unpin, { passive: true });
+  });
 
   var ticking = false;
   window.addEventListener('scroll', function() {
@@ -71,6 +84,7 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
     }
 
     checkbox.addEventListener('change', function() {
+      var anchorTop = header.getBoundingClientRect().top;
       file.classList.toggle('viewed', checkbox.checked);
       file.classList.toggle('folded', checkbox.checked);
       localStorage.setItem(PREFIX + key, checkbox.checked ? 'true' : 'false');
@@ -86,6 +100,10 @@ document.querySelectorAll('.diff-fold-btn').forEach(function(btn) {
           otherFile.classList.toggle('folded', checkbox.checked);
         }
       });
+
+      // A stuck header would otherwise leave the viewport deep inside whatever follows the folded file
+      var delta = file.getBoundingClientRect().top - anchorTop;
+      if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: 'instant' });
     });
   });
 })();

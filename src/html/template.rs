@@ -232,7 +232,7 @@ fn render_file_header(file_diff: &FileDiff, path: &str) -> String {
 fn render_hunk_table(hunk: &Hunk, file_path: &str) -> String {
   let mut html = String::new();
   html.push_str(&format!(
-    "<table class=\"diff-table\" data-file=\"{}\">\n",
+    "<div class=\"diff-scroll\"><table class=\"diff-table\" data-file=\"{}\">\n",
     html_escape(file_path)
   ));
 
@@ -279,7 +279,7 @@ fn render_hunk_table(hunk: &Hunk, file_path: &str) -> String {
     ));
   }
 
-  html.push_str("</table>\n");
+  html.push_str("</table></div>\n");
   html
 }
 

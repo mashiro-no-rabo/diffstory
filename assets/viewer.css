@@ -381,7 +381,7 @@ progress::-webkit-progress-value { background: var(--progress); border-radius: 9
 
 .story-section-header {
   margin-bottom: 16px;
-  scroll-margin-top: 90px;
+  scroll-margin-top: calc(var(--appbar-h) + 28px);
 }
 
 .story-section-header h3 {
@@ -408,10 +408,21 @@ progress::-webkit-progress-value { background: var(--progress); border-radius: 9
   margin-bottom: 22px;
   border: 1px solid var(--border);
   border-radius: 5px;
+}
+
+.diff-scroll {
   overflow-x: auto;
 }
 
+.diff-scroll:last-child {
+  border-radius: 0 0 5px 5px;
+}
+
 .diff-file-header {
+  position: sticky;
+  top: var(--appbar-h);
+  z-index: 5;
+  border-radius: 5px 5px 0 0;
   min-height: 44px;
   padding: 9px 13px;
   display: flex;
@@ -507,6 +518,7 @@ progress::-webkit-progress-value { background: var(--progress); border-radius: 9
 
 .diff-file.folded .diff-file-header {
   border-bottom: none;
+  border-radius: 5px;
 }
 
 .diff-file-header .badge {
@@ -646,7 +658,7 @@ html.split-view .diff-split { display: table; }
   position: relative;
   isolation: isolate;
   margin-bottom: 24px;
-  scroll-margin-top: 90px;
+  scroll-margin-top: calc(var(--appbar-h) + 28px);
 }
 
 .collapsible-header {
