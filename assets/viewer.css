@@ -300,10 +300,9 @@ progress::-webkit-progress-value { background: var(--progress); border-radius: 9
   font-size: 11px;
 }
 
-/* Main content; right padding leaves room for the section comment rails */
 .content {
   margin: var(--appbar-h) 0 0 250px;
-  padding: 36px 310px 70px 40px;
+  padding: 36px 40px 70px 40px;
   min-width: 0;
 }
 
@@ -688,51 +687,6 @@ html.split-view .diff-split { display: table; }
   background-color: var(--link-active-bg) !important;
 }
 
-/* Comment rail beside each section */
-.section-comments {
-  position: absolute;
-  left: calc(100% + 18px);
-  top: 0;
-  width: 250px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.drawer-open .section-comments {
-  display: none;
-}
-
-.section-comment-label {
-  font-size: 10px;
-  color: var(--fg-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.7px;
-  margin-bottom: 2px;
-}
-
-.add-section-comment {
-  font-size: 11px;
-  padding: 3px 8px;
-  color: var(--fg-muted);
-  margin: 10px 0 0;
-}
-
-.context-note {
-  position: relative;
-  padding: 10px 12px;
-  border-left: 2px solid var(--source-outline);
-  border-radius: 0 5px 5px 0;
-  background: var(--bg-subtle);
-  font-size: 12px;
-  color: var(--fg);
-}
-
-.context-note.selected {
-  border-left-color: var(--accent);
-  background: var(--link-active-bg);
-}
-
 .comment-location {
   border: 0;
   background: none;
@@ -764,13 +718,13 @@ html.split-view .diff-split { display: table; }
   color: var(--fg-muted);
 }
 
-.context-note details, .list-note details {
+.list-note details {
   margin-top: 8px;
   font-size: 10px;
   color: var(--fg-muted);
 }
 
-.context-note pre, .list-note pre {
+.list-note pre {
   max-height: 120px;
   overflow: auto;
   padding: 8px;
@@ -808,22 +762,6 @@ html.split-view .diff-split { display: table; }
 .drawer-header button {
   border: 0;
   font-size: 11px;
-}
-
-.drawer-filter {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 18px 15px;
-  border-bottom: 1px solid var(--border);
-  font-size: 11px;
-  color: var(--fg-muted);
-}
-
-.drawer-filter select {
-  font-size: 11px;
-  border: 0;
-  padding: 3px;
 }
 
 .all-comments {
@@ -883,55 +821,48 @@ html.split-view .diff-split { display: table; }
   border-color: var(--source-outline);
 }
 
-/* Editor dialog, toast */
-dialog {
-  width: min(480px, calc(100vw - 32px));
-  padding: 24px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg);
-  color: var(--fg);
+/* Composer */
+.comment-composer {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
 }
 
-dialog::backdrop {
-  background: #14203355;
-}
-
-dialog h2 {
-  margin: 0 0 5px;
-  font-size: 20px;
-}
-
-dialog p {
-  color: var(--fg-muted);
+.comment-composer h3 {
+  margin: 0;
   font-size: 12px;
+  font-weight: 600;
+}
+
+.comment-composer p {
+  margin: 4px 0 8px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 10px;
+  color: var(--accent);
   overflow-wrap: anywhere;
 }
 
-dialog pre {
-  max-height: 150px;
+.comment-composer pre {
+  max-height: 120px;
   overflow: auto;
-  padding: 12px;
-  border-radius: 4px;
-  background: var(--bg-subtle);
+  margin: 0 0 8px;
+  padding: 8px;
+  background: var(--bg);
   white-space: pre-wrap;
-  font-size: 11px;
+  overflow-wrap: anywhere;
+  font-size: 10px;
 }
 
-dialog label {
-  display: block;
-  margin: 16px 0 6px;
-  font-size: 12px;
-}
-
-dialog textarea {
+.comment-composer textarea {
   display: block;
   width: 100%;
-  padding: 10px;
+  padding: 8px;
   border: 1px solid var(--border);
   border-radius: 5px;
   background: var(--bg);
   color: var(--fg);
+  font: inherit;
+  font-size: 13px;
   resize: vertical;
 }
 
@@ -939,7 +870,7 @@ dialog textarea {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 20px;
+  margin-top: 10px;
 }
 
 #toast {
@@ -1036,8 +967,7 @@ dialog textarea {
 
 /* Responsive */
 @media (min-width: 1700px) {
-  .content { padding-left: 48px; padding-right: 340px; }
-  .section-comments { width: 270px; }
+  .content { padding-left: 48px; padding-right: 48px; }
   .drawer-open .content { padding-right: 380px; }
 }
 
@@ -1047,8 +977,7 @@ dialog textarea {
   .top-progress progress { display: none; }
   .top-actions { gap: 7px; }
   .sidebar { width: 210px; }
-  .content { margin-left: 210px; padding-left: 26px; padding-right: 245px; }
-  .section-comments { width: 205px; left: calc(100% + 14px); }
+  .content { margin-left: 210px; padding-left: 26px; padding-right: 26px; }
   .comments-drawer { width: 300px; }
   .drawer-open .content { padding-right: 326px; }
   .diff-file-header { flex-wrap: wrap; }
@@ -1059,8 +988,6 @@ dialog textarea {
   .wordmark { width: 178px; }
   .top-progress { display: none; }
   .content, .drawer-open .content { padding-right: 24px; }
-  .section-comments { position: static; width: auto; margin: 12px 0 0; }
-  .section-comment-label { display: none; }
   .comments-drawer { width: 340px; box-shadow: -8px 0 24px #0001; }
   .page-header h1 { font-size: 26px; }
 }

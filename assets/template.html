@@ -46,13 +46,16 @@
     <h2>Comments <span class="count" id="drawer-count">0</span></h2>
     <button type="button" class="quiet" id="close-comments" aria-label="Close comments">Close</button>
   </header>
-  <div class="drawer-filter">
-    <label for="comment-filter">Show</label>
-    <select id="comment-filter">
-      <option value="all">All sections</option>
-      <option value="current">Current section</option>
-    </select>
-  </div>
+  <form id="comment-editor" class="comment-composer" hidden>
+    <h3 id="editor-heading">New comment</h3>
+    <p id="editor-location"></p>
+    <pre id="editor-quote"></pre>
+    <textarea id="comment-body" aria-label="Comment" placeholder="What would you like to change?" rows="4"></textarea>
+    <div class="editor-actions">
+      <button type="button" id="cancel-comment" class="quiet">Cancel</button>
+      <button type="submit" class="primary">Save</button>
+    </div>
+  </form>
   <div id="all-comments" class="all-comments"></div>
   <footer class="drawer-footer">
     <button type="button" id="clear-comments" class="quiet">Clear</button>
@@ -60,19 +63,6 @@
   </footer>
 </aside>
 <div id="toast" role="status" aria-live="polite"></div>
-<dialog id="comment-editor">
-  <form method="dialog">
-    <h2 id="editor-heading">Add comment</h2>
-    <p id="editor-location"></p>
-    <pre id="editor-quote"></pre>
-    <label for="comment-body">Your comment</label>
-    <textarea id="comment-body" required placeholder="What would you like to change?" rows="4"></textarea>
-    <div class="editor-actions">
-      <button value="cancel" formnovalidate>Cancel</button>
-      <button id="save-comment" value="save" class="primary">Save comment</button>
-    </div>
-  </form>
-</dialog>
 <script>
 {{JS}}
 </script>

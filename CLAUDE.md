@@ -26,7 +26,7 @@ cargo test
 - HTML viewer is fully self-contained (no external dependencies), with dark theme and split view toggles
 - Markdown in descriptions/notes rendered via comrak
 - GitHub integration uses `gh` CLI (no API token management needed)
-- Review comments: select text (prose or diff) and type to open the comment editor; comments show beside their section and in the Comments drawer, whose "Copy prompt" exports them as an agent prompt and clears them
+- Review comments: select text (prose or diff) and type to open the Comments drawer with the composer; comments show only in the drawer, whose "Copy prompt" exports them as an agent prompt and clears them
 
 ## Test Fixtures
 
